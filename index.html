@@ -461,12 +461,15 @@ function fillForm(r, asCopy) {
   if (r.driver === 'CANCELLED') $('fDriver').value = '';
   if (asCopy) { $('fDepart').value = 'PENDING'; $('fPayStatus').value = ''; $('fInvStatus').value = ''; $('fInvNo').value = ''; $('fDriver').value = ''; }
   else { $('fId').value = r.id; $('fTitle').textContent = 'Edit Booking ' + r.id; $('fSave').textContent = 'Simpan Perubahan'; $('fDelete').classList.remove('hidden'); }
-  $('fCharges').value = r.charges || '';
-  S.chargesTouched = true;
+  // Edit: charges lama dipertahankan (kalau kosong → dihitung otomatis).
+  // Duplikat: charges selalu dihitung ulang dari price list + diskon terbaru.
+  $('fCharges').value = asCopy ? '' : (r.charges || '');
+  S.chargesTouched = !asCopy && !!r.charges;
   if (r.paxType === 'EMPLOYEE' || r.paxType === 'CUSTOMER') { $('fPax').value = r.paxType; S.paxTouched = true; $('fPaxHint').textContent = ''; }
   else { $('fPax').value = 'CUSTOMER'; guessPax(); }
   buildAreas();
   guessArea();
+  applyPrice(false);
   checkClash();
 }
 function editBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) return; showTab('form'); fillForm(r, false); }
@@ -474,7 +477,7 @@ function copyBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) retu
 
 $('fCharges').addEventListener('input', () => { S.chargesTouched = true; });
 $('fPax').addEventListener('change', () => { S.paxTouched = true; $('fPaxHint').textContent = ''; });
-$('fGuest').addEventListener('change', () => { guessPax(); applyPrice(false); });
+['input', 'change'].forEach(ev => $('fGuest').addEventListener(ev, () => { guessPax(); applyPrice(false); }));
 
 /* Tebak Customer / Employee:
    1) nama tamu pernah disimpan sebagai EMPLOYEE (kolom U PASSENGER TYPE)
@@ -555,6 +558,11 @@ function findRule(company) {
   return null;                                                   // tidak ada aturan → harga normal
 }
 
+function nameDiscount() {
+  const g = $('fGuest').value.toUpperCase();
+  return NAME_DISCOUNT.find(x => new RegExp('\\b' + x.name + '\\b').test(g)) || null;
+}
+
 function calcPrice() {
   if (!S.master) return null;
   const company = $('fCompany').value;
@@ -604,8 +612,7 @@ function calcPrice() {
   if (rentTrip && !/hour/i.test(p.area)) notes.push('Trip RENT tapi area bukan paket jam — pilih area "x Hour Rent".');
 
   let final = base, ruleTxt = 'Harga normal (tidak ada aturan khusus untuk company ini).';
-  const guestUp = $('fGuest').value.toUpperCase();
-  const nd = NAME_DISCOUNT.find(x => new RegExp('\\b' + x.name + '\\b').test(guestUp));
+  const nd = nameDiscount();
   if (nd) {
     final = base * (100 - nd.pct) / 100;
     ruleTxt = 'Diskon khusus ' + nd.label + ': ' + nd.pct + '% setiap booking.';
@@ -630,11 +637,13 @@ function applyPrice(force) {
   if (!r) {
     if (!S.chargesTouched) $('fCharges').value = '';
     const n = S.master ? S.master.prices.length : 0;
+    const ndw = nameDiscount();
     $('fPriceInfo').textContent = !n
       ? 'Taxi Price List tidak terbaca (0 destinasi). Pastikan Code.gs versi terbaru sudah di-deploy (New version) lalu klik Refresh.'
       : ($('fDropoff').value || $('fPickup').value)
         ? 'Destination belum cocok dengan Taxi Price List (' + n + ' destinasi terbaca) — pilih area harga manual atau isi charges.'
         : 'Isi Drop Off / destination — harga otomatis dari Taxi Price List (' + n + ' destinasi terbaca).';
+    if (ndw) $('fPriceInfo').textContent += ' Diskon ' + ndw.label + ' ' + ndw.pct + '% akan dipakai begitu area harga ketemu.';
     return;
   }
   if (r.rate === 'Agreement') { if (force || !S.chargesTouched) $('fCharges').value = 0; $('fPriceInfo').innerHTML = '<b>' + esc(r.area) + '</b> · ' + esc(r.ruleTxt); return; }
