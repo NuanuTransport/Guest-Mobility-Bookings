@@ -152,7 +152,7 @@
           <div><label>Penumpang</label>
             <select id="fPax"><option value="CUSTOMER">Customer / Guest</option><option value="EMPLOYEE">Employee / Staff Nuanu</option></select>
             <div class="small muted" id="fPaxHint" style="margin-top:4px"></div></div>
-          <div id="fWaitBox" class="hidden"><label>Waiting (jam) — Emergency</label><input id="fWait" type="number" min="0" step="0.5" value="0"></div>
+          <div id="fWaitBox" class="hidden"><label>Waiting (jam) — Staff, Rp50.000/jam</label><input id="fWait" type="number" min="0" step="0.5" value="0"></div>
           <div><label>Charges (Rp)</label><input id="fCharges" inputmode="numeric"></div>
           <div style="display:flex;align-items:end"><button class="btn ghost" type="button" onclick="applyPrice(true)">Hitung ulang</button></div>
         </div>
@@ -206,7 +206,7 @@
 
 <script>
 /* ====== GANTI DENGAN URL WEB APP APPS SCRIPT ====== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxmxnet_lGKswbLuhjnVO-kiOvx214cXZNuNgd0pr7xm6kfYtX4p1FV9usyqifVGwU/exec';
+const API_URL = 'PASTE_URL_WEB_APP_DI_SINI';
 /* ================================================== */
 
 /* ---------- DAFTAR COMPANY & PAYMENT (edit di sini) ---------- */
@@ -256,7 +256,7 @@ const RULE_ALIAS = {
 const NORMAL_PRICE = ['SOL STUDIO', 'LABYRINTH', 'BIOM', 'PROED GLOBAL SCHOOL', 'EDEN UBUD'];
 // Agreement flat bulanan → charges per trip = 0, ditagih bulanan
 const MONTHLY_FLAT = { 'HANDARA': 18000000 };
-// Tarif waiting untuk aturan Emergency (dipakai kalau remark di sheet tidak menyebut angka)
+// Waiting fee Emergency (Service and Medic Support) — hanya untuk Staff, per 1 jam
 const WAITING_PER_HOUR = 50000;
 // Department internal Nuanu → pakai aturan INTERNAL REQUEST
 const INTERNAL_DEPTS = ['PUBLIC RELATIONS', 'BRAND AND COMM', 'NUANU SOCIAL FUND', 'NUANU EVENT', 'NUANU EXPERIENCE',
@@ -522,20 +522,27 @@ function calcPrice() {
   const pax = $('fPax').value.toLowerCase();
   const rule = findRule(company);
   const isEmergency = !!(rule && /EMERGENCY/i.test(rule.partner));
-  $('fWaitBox').classList.toggle('hidden', !isEmergency);
+  const canWait = isEmergency && pax === 'employee';     // waiting fee hanya untuk Staff
+  $('fWaitBox').classList.toggle('hidden', !canWait);
 
   // Agreement flat bulanan (Handara)
   if (MONTHLY_FLAT[company]) {
     return { base: 0, final: 0, area: company, rate: 'Agreement', notes: [],
       ruleTxt: 'Flat ' + rp(MONTHLY_FLAT[company]) + ' per bulan sesuai agreement — charges per trip 0, ditagih bulanan.' };
   }
-  // Emergency: flat customer/employee + waiting per jam (tidak butuh area)
+  // Emergency (Service and Medic Support), tidak butuh area:
+  //  - Customer/Guest : flat saja, tanpa waiting (drop di klinik/RS tujuan)
+  //  - Staff          : flat + waiting fee per jam kalau ada
   if (isEmergency && rule[pax].mode === 'flat' && rule[pax].amount) {
-    const m = String(rule.remark || '').match(/waiting[^\d]*(\d+)\s*K/i);
-    const perHr = m ? Number(m[1]) * 1000 : WAITING_PER_HOUR;
-    const hrs = Number($('fWait').value) || 0;
-    const fin = rule[pax].amount + hrs * perHr;
-    return { base: rule[pax].amount, final: fin, area: 'Emergency', rate: 'Flat', notes: hrs ? ['Waiting ' + hrs + ' jam × ' + rp(perHr) + '.'] : ['Waiting ' + rp(perHr) + '/jam — isi jumlah jam kalau ada.'],
+    let fin = rule[pax].amount, notes;
+    if (canWait) {
+      const hrs = Number($('fWait').value) || 0;
+      fin += hrs * WAITING_PER_HOUR;
+      notes = hrs ? ['Waiting ' + hrs + ' jam × ' + rp(WAITING_PER_HOUR) + '.'] : ['Waiting fee ' + rp(WAITING_PER_HOUR) + '/jam — isi jumlah jam kalau ada.'];
+    } else {
+      notes = ['Guest/customer: flat tanpa waiting (drop di klinik/RS tujuan).'];
+    }
+    return { base: rule[pax].amount, final: fin, area: 'Emergency', rate: 'Flat', notes: notes,
       ruleTxt: rule.partner.trim() + ' · ' + (pax === 'employee' ? 'Employee' : 'Customer') + ': ' + rule[pax].label };
   }
 
