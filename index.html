@@ -76,6 +76,16 @@
   .absen{text-align:center}
   .absen .big{font-size:28px;font-weight:700;margin:6px 0 2px}
   .absen .btn{width:100%;padding:14px;font-size:16px;margin-top:12px}
+  .loc{margin-top:8px;font-size:13px;color:var(--muted);line-height:1.4}
+  .loc b{color:var(--ink);font-weight:600}
+  .cam{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column}
+  .cam video{flex:1;width:100%;object-fit:cover;transform:scaleX(-1);min-height:0}
+  .cam .oval{position:absolute;left:50%;top:42%;width:62vw;max-width:280px;aspect-ratio:3/4;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,.45);pointer-events:none}
+  .cam .camtxt{position:absolute;left:0;right:0;top:18px;text-align:center;color:#fff;font-weight:600;padding:0 16px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  .cam .cambar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px 28px;background:#000}
+  .cam .cambar button.x{background:transparent;border:0;color:#fff;font:inherit;font-weight:600;font-size:16px;width:70px;text-align:left}
+  .cam .shutter{width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:var(--brand);cursor:pointer}
+  .cam .shutter:disabled{opacity:.5}
   .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;text-align:left}
   .kv div{background:var(--bg);border-radius:8px;padding:8px 10px}
   .kv b{display:block;font-size:15px}
@@ -282,6 +292,20 @@
       <div id="hTrips"></div>
     </section>
   </div>
+</div>
+
+<!-- KAMERA ABSEN -->
+<div id="camModal" class="cam hidden">
+  <video id="camVideo" playsinline autoplay muted></video>
+  <div class="oval"></div>
+  <div class="camtxt" id="camTxt">Posisikan wajah di dalam lingkaran</div>
+  <div class="cambar">
+    <button class="x" onclick="camClose(null)">Batal</button>
+    <button class="shutter" id="camShot" onclick="camCapture()" aria-label="Ambil foto"></button>
+    <span style="width:70px"></span>
+  </div>
+  <canvas id="camCanvas" class="hidden"></canvas>
+  <input type="file" id="camFile" accept="image/*" capture="user" class="hidden">
 </div>
 
 <datalist id="dlDriver"></datalist>
@@ -938,7 +962,11 @@ async function renderAtt(keep) {
       '<td>' + hm(r.lastTrip) + '</td><td class="num">' + jam(r.otCalc) + '</td>' +
       '<td style="width:90px">' + (canAct ? '<input type="number" min="0" step="0.5" value="' + r.otApproved + '" id="ot-' + r.id + '"' + (r.otStatus === 'APPROVED' ? ' title="Ubah lalu Approve lagi untuk koreksi"' : '') + '>' : '—') + '</td>' +
       '<td>' + otChip(r.otStatus) + (r.procBy ? '<div class="small muted">' + esc(r.procBy) + '</div>' : '') + '</td>' +
-      '<td class="small">' + esc(flags.concat(r.note && !/Lupa clock out|luar area/.test(r.note) ? [r.note] : []).join(' · ')) + '</td>' +
+      '<td class="small">' + esc(flags.concat(r.note && !/Lupa clock out|luar area/.test(r.note) ? [r.note] : []).join(' · ')) +
+        (r.inAddr ? '<div class="muted" title="Lokasi clock in">In: ' + esc(r.inAddr) + '</div>' : '') +
+        (r.outAddr ? '<div class="muted" title="Lokasi clock out">Out: ' + esc(r.outAddr) + '</div>' : '') +
+        '<div>' + (r.inPhoto ? '<a href="' + esc(r.inPhoto) + '" target="_blank" rel="noopener">Foto in</a>' : '') +
+        (r.outPhoto ? (r.inPhoto ? ' · ' : '') + '<a href="' + esc(r.outPhoto) + '" target="_blank" rel="noopener">Foto out</a>' : '') + '</div></td>' +
       '<td><div class="acts">' + (canAct ? '<button class="btn sm" onclick="otApprove(\'' + r.id + '\')">' + (r.otStatus === 'APPROVED' ? 'Update' : 'Approve') + '</button>' +
         (r.otStatus !== 'REJECTED' && r.otStatus !== 'NO OT' ? '<button class="btn sm red" onclick="otReject(\'' + r.id + '\')">Reject</button>' : '') : '') + '</div></td></tr>';
   }).join('') : '<tr><td colspan="10" class="muted">Tidak ada data absen.</td></tr>';
@@ -983,16 +1011,14 @@ function renderDHome() {
   const h = S.dh, a = h.att, open = h.open;
   let html;
   if (open) {
-    html = '<div class="muted small">Sedang bekerja sejak</div><div class="big">' + hm(a.clockIn) + '</div><div class="muted small">' + dm(a.clockIn) + '</div>' +
-      '<div class="kv"><div><span class="small muted">Jam normal selesai</span><b>' + hm(a.normalEnd) + '</b></div>' +
-      '<div><span class="small muted">Trip terakhir selesai</span><b>' + hm(a.lastTrip) + '</b></div>' +
-      '<div><span class="small muted">Perkiraan OT</span><b>' + jam(a.otCalc) + '</b></div>' +
-      '<div><span class="small muted">Jam kerja normal</span><b>' + a.normalHours + ' jam</b></div></div>' +
+    html = '<div class="muted small">Clock in</div><div class="big">' + hm(a.clockIn) + '</div><div class="muted small">' + dm(a.clockIn) + '</div>' +
+      locLine(a.inAddr, a.inLoc) +
       '<button class="btn red" id="btnClock" onclick="doClock(\'clockout\')">Clock Out</button>' +
       '<p class="small muted" style="margin:8px 0 0">OT dihitung sampai trip terakhir yang ditandai selesai + 1 jam. Tandai "Selesai trip" di setiap booking.</p>';
   } else {
     html = '<div class="muted small">Status</div><div class="big">Belum clock in</div>' +
-      (a ? '<div class="muted small">Absen terakhir: ' + dm(a.clockIn) + ' ' + hm(a.clockIn) + ' → ' + hm(a.clockOut) + (a.otCalc ? ' · OT ' + jam(a.otCalc) : '') + '</div>' : '') +
+      (a ? '<div class="muted small">Absen terakhir: ' + dm(a.clockIn) + ' ' + hm(a.clockIn) + ' → ' + hm(a.clockOut) + (a.otCalc ? ' · OT ' + jam(a.otCalc) : '') + '</div>' +
+        (a.clockOut && a.outAddr ? '<div class="loc">Lokasi clock out: <b>' + esc(a.outAddr) + '</b></div>' : '') : '') +
       '<button class="btn" id="btnClock" onclick="doClock(\'clockin\')">Clock In</button>';
   }
   $('dAbsen').innerHTML = html;
@@ -1018,6 +1044,66 @@ function tripCard(b, action) {
     (action && !canc && !b.finishedAt ? '<button class="btn" onclick="finishTrip(\'' + b.id + '\', this)">Selesai trip</button>' : '') + '</div>';
 }
 
+function locLine(addr, coords) {
+  if (addr) return '<div class="loc">Lokasi: <b>' + esc(addr) + '</b></div>';
+  if (coords && coords !== 'TIDAK ADA GPS') return '<div class="loc">Lokasi: <b>' + esc(coords) + '</b></div>';
+  return '<div class="loc">Lokasi tidak terbaca (GPS mati)</div>';
+}
+
+/* ---------- kamera: scan wajah saat clock in / clock out ---------- */
+let camStream = null, camResolve = null;
+function camOpen(title) {
+  return new Promise(async resolve => {
+    camResolve = resolve;
+    $('camTxt').textContent = title + ' — posisikan wajah di dalam lingkaran lalu tekan tombol';
+    $('camShot').disabled = true;
+    $('camModal').classList.remove('hidden');
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } }, audio: false });
+      $('camVideo').srcObject = camStream;
+      await $('camVideo').play().catch(() => {});
+      $('camShot').disabled = false;
+    } catch (e) {
+      // kamera langsung tidak bisa dibuka (browser lama / izin ditolak) → pakai kamera bawaan HP
+      $('camModal').classList.add('hidden');
+      const inp = $('camFile'); inp.value = '';
+      inp.onchange = () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return camClose(null);
+        const img = new Image();
+        img.onload = () => { camClose(shrink(img, img.naturalWidth, img.naturalHeight, false)); URL.revokeObjectURL(img.src); };
+        img.src = URL.createObjectURL(f);
+      };
+      inp.click();
+    }
+  });
+}
+function shrink(src, w, h, mirror) {
+  const max = 640, k = Math.min(1, max / Math.max(w, h));
+  const c = $('camCanvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const g = c.getContext('2d');
+  if (mirror) { g.translate(c.width, 0); g.scale(-1, 1); }
+  g.drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.75);
+}
+async function camCapture() {
+  const v = $('camVideo');
+  if (!v.videoWidth) return;
+  if ('FaceDetector' in window) {
+    try {
+      const faces = await new window.FaceDetector({ fastMode: true }).detect(v);
+      if (!faces.length) { toast('Wajah tidak terdeteksi, coba lagi', true); return; }
+    } catch (e) { /* FaceDetector tidak tersedia di HP ini → lanjut */ }
+  }
+  camClose(shrink(v, v.videoWidth, v.videoHeight, true));
+}
+function camClose(photo) {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  $('camVideo').srcObject = null;
+  $('camModal').classList.add('hidden');
+  if (camResolve) { const r = camResolve; camResolve = null; r(photo); }
+}
+
 function getPos() {
   return new Promise(res => {
     if (!navigator.geolocation) return res(null);
@@ -1025,14 +1111,15 @@ function getPos() {
   });
 }
 async function doClock(kind) {
-  if (kind === 'clockout' && !confirm('Clock out sekarang?')) return;
-  const btn = $('btnClock'); btn.disabled = true; btn.textContent = 'Mengambil lokasi…';
-  const pos = await getPos();
-  if (!pos && !confirm('Lokasi GPS tidak terbaca. Tetap ' + (kind === 'clockin' ? 'clock in' : 'clock out') + ' tanpa lokasi? (akan ditandai)')) { renderDHome(); return; }
-  btn.textContent = 'Menyimpan…';
+  const label = kind === 'clockin' ? 'Clock in' : 'Clock out';
+  const posP = getPos();                                  // GPS diambil bersamaan saat kamera terbuka
+  const photo = await camOpen(label);
+  if (!photo) { toast(label + ' dibatalkan — foto wajah wajib'); return; }
+  const btn = $('btnClock'); btn.disabled = true; btn.textContent = 'Menyimpan…';
+  const pos = await posP;
   try {
-    const r = await api(kind, pos || {});
-    toast(kind === 'clockin' ? 'Clock in ' + hm(r.clockIn) + ' tercatat' : 'Clock out tercatat' + (r.ot ? ' · OT ' + jam(r.ot) + ' menunggu approve admin' : ''));
+    const r = await api(kind, Object.assign({ photo: photo }, pos || {}));
+    toast(kind === 'clockin' ? 'Clock in ' + hm(r.clockIn) + ' tersimpan' : 'Clock out tersimpan' + (r.ot ? ' · OT ' + jam(r.ot) + ' menunggu approve admin' : ''));
     await driverRefresh(true);
   } catch (e) { toast(e.message, true); renderDHome(); }
 }
