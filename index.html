@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nuanu Taxi Booking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f5f2; --card:#ffffff; --ink:#1d2320; --muted:#6b736e; --line:#e2e5e0;
+    --brand:#1f5c46; --brand-soft:#e3efe9; --amber:#b86e00; --amber-soft:#fbf0dc;
+    --red:#b3261e; --red-soft:#fbe6e4; --blue:#2457a6; --blue-soft:#e4ecf8;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{background:var(--brand);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.2px}
+  header .sp{flex:1}
+  header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+  nav{display:flex;gap:4px;padding:10px 16px 0;max-width:1200px;margin:0 auto;overflow-x:auto}
+  nav button{border:0;background:transparent;padding:10px 14px;font:inherit;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+  nav button.on{color:var(--brand);border-color:var(--brand)}
+  main{max-width:1200px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+  textarea{min-height:60px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
+  .btn{border:0;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;background:var(--brand);color:#fff}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn.sm{padding:5px 9px;font-size:12px}
+  .btn.red{background:var(--red)}
+  .btn.amber{background:var(--amber)}
+  .btn:disabled{opacity:.5;cursor:default}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600;background:#fafbf9;position:sticky;top:0}
+  td.num,th.num{text-align:right;white-space:nowrap}
+  .tbl{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:10px}
+  .chip{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700}
+  .chip.PENDING{background:var(--amber-soft);color:var(--amber)}
+  .chip.DONE{background:var(--brand-soft);color:var(--brand)}
+  .chip.CANCELLED{background:var(--red-soft);color:var(--red)}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .stat .v{font-size:22px;font-weight:700;margin-top:4px}
+  .stat .k{font-size:12px;color:var(--muted);font-weight:600}
+  .bar{height:8px;border-radius:99px;background:var(--brand-soft);overflow:hidden;min-width:60px}
+  .bar i{display:block;height:100%;background:var(--brand)}
+  .pricebox{background:var(--blue-soft);border-radius:10px;padding:12px;color:var(--blue);font-size:13px}
+  .warn{background:var(--amber-soft);color:var(--amber);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+  .hidden{display:none!important}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1d2320;color:#fff;padding:10px 16px;border-radius:10px;font-weight:600;opacity:0;transition:.2s;pointer-events:none;z-index:20}
+  #toast.show{opacity:1}
+  #toast.err{background:var(--red)}
+  .login{max-width:360px;margin:12vh auto}
+  .acts{display:flex;gap:4px;flex-wrap:wrap}
+  .sec-title{font-size:13px;font-weight:700;margin:0 0 10px}
+  .sign{display:none}
+  @media print{
+    header,nav,.noprint,#toast{display:none!important}
+    body{background:#fff}
+    main{padding:0;max-width:none}
+    .card{border:0;padding:0}
+    .tbl{max-height:none;overflow:visible;border:0}
+    th{position:static}
+    .sign{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:40px;text-align:center}
+    .sign .ln{margin-top:60px;font-weight:700;border-top:1px solid #000;padding-top:4px}
+  }
+  @media (max-width:640px){ main{padding:12px} .hide-sm{display:none} }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView" class="login card">
+  <h2 style="margin:0 0 4px">Nuanu Taxi Booking</h2>
+  <p class="muted small" style="margin:0 0 16px">Admin Guest Mobility</p>
+  <label>PIN Admin</label>
+  <input id="pinInput" type="password" inputmode="numeric" placeholder="Masukkan PIN">
+  <button class="btn" style="width:100%;margin-top:12px" onclick="login()">Masuk</button>
+  <p id="loginMsg" class="small" style="color:var(--red)"></p>
+</div>
+
+<!-- APP -->
+<div id="appView" class="hidden">
+  <header>
+    <h1>Nuanu Taxi Booking</h1>
+    <span class="sp"></span>
+    <button onclick="reloadAll()">Refresh</button>
+    <button onclick="logout()">Keluar</button>
+  </header>
+  <nav>
+    <button data-tab="list" class="on">Booking Harian</button>
+    <button data-tab="form">+ Booking Baru</button>
+    <button data-tab="recap">Recap Tagihan</button>
+    <button data-tab="dash">Dashboard</button>
+  </nav>
+  <main>
+
+    <!-- BOOKING HARIAN -->
+    <section id="tab-list">
+      <div class="card noprint">
+        <div class="row">
+          <div style="width:170px"><label>Tanggal</label><input type="date" id="lDate"></div>
+          <div style="width:150px"><label>Status</label>
+            <select id="lStatus"><option value="">Semua</option><option>PENDING</option><option>DONE</option><option>CANCELLED</option></select></div>
+          <div style="flex:1;min-width:180px"><label>Cari</label><input id="lSearch" placeholder="Guest, company, driver, lokasi…"></div>
+          <button class="btn ghost" onclick="shiftDay(-1)">‹</button>
+          <button class="btn ghost" onclick="setToday()">Hari ini</button>
+          <button class="btn ghost" onclick="shiftDay(1)">›</button>
+        </div>
+      </div>
+      <div class="stats" id="lStats" style="margin-bottom:14px"></div>
+      <div class="card">
+        <div class="tbl"><table>
+          <thead><tr><th>Jam</th><th>Guest / Company</th><th>Rute</th><th class="hide-sm">Trip / Mobil</th><th>Driver</th><th class="num">Charges</th><th>Status</th><th></th></tr></thead>
+          <tbody id="lBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- FORM -->
+    <section id="tab-form" class="hidden">
+      <div class="card">
+        <p class="sec-title" id="fTitle">Booking Baru</p>
+        <input type="hidden" id="fId">
+        <div class="grid">
+          <div><label>Booking Date *</label><input type="date" id="fDate"></div>
+          <div><label>Pick Up Time *</label><input type="time" id="fTime"></div>
+          <div><label>Req By - Guest Name *</label><input id="fGuest" placeholder="SUKMA - MR JOHN"></div>
+          <div><label>Company *</label><input id="fCompany" list="dlCompany" placeholder="OSHOM, NRE, DIRECT ORDER…"></div>
+          <div><label>Details Flight</label><input id="fFlight" placeholder="QR960"></div>
+          <div><label>Pick Up *</label><input id="fPickup"></div>
+          <div><label>Drop Off *</label><input id="fDropoff"></div>
+          <div><label>Trip</label>
+            <select id="fTrip">
+              <option>SINGEL</option><option>ROUND</option>
+              <option>RENT 4 HOURS</option><option>RENT 6 HOURS</option><option>RENT 8 HOURS</option><option>RENT 12 HOURS</option>
+            </select></div>
+          <div><label>Car Type</label><input id="fCar" list="dlCar" value="BYD"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="sec-title">Harga</p>
+        <div class="grid">
+          <div><label>Area harga (Taxi Price List)</label><select id="fArea"></select></div>
+          <div><label>Penumpang</label>
+            <select id="fPax"><option value="customer">Customer / Guest</option><option value="employee">Employee / Staff Nuanu</option></select></div>
+          <div><label>Charges (Rp)</label><input id="fCharges" inputmode="numeric"></div>
+          <div style="display:flex;align-items:end"><button class="btn ghost" type="button" onclick="applyPrice(true)">Hitung ulang</button></div>
+        </div>
+        <div class="pricebox" id="fPriceInfo" style="margin-top:12px">Pilih area untuk menghitung harga.</div>
+      </div>
+
+      <div class="card">
+        <p class="sec-title">Driver, Payment & Invoice</p>
+        <div class="grid">
+          <div><label>Driver Assigned</label><input id="fDriver" list="dlDriver"></div>
+          <div><label>Driver (shift)</label>
+            <select id="fDriverType"><option value="">Reguler</option><option>PART TIME</option></select></div>
+          <div><label>Depart Status</label>
+            <select id="fDepart"><option>PENDING</option><option>DONE</option><option>CANCELLED</option></select></div>
+          <div><label>Payment</label><input id="fPayment" list="dlPayment" placeholder="PT. OSHOM BALI GROUP / TRANSFER / CASH"></div>
+          <div><label>Status (Pembayaran)</label>
+            <select id="fPayStatus"><option value=""></option><option>PENDING</option><option>DONE</option><option>CANCELED</option></select></div>
+          <div><label>Purpose</label><input id="fPurpose"></div>
+          <div><label>Status Invoice</label>
+            <select id="fInvStatus"><option value=""></option><option>PENDING</option><option>DONE</option><option>CANCELED</option></select></div>
+          <div><label>No Invoice</label><input id="fInvNo"></div>
+          <div><label>No SO</label><input id="fSoNo" placeholder="SO/2026/…"></div>
+        </div>
+        <div id="fClash" class="warn hidden"></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="fSave" onclick="saveBooking()">Simpan Booking</button>
+          <button class="btn ghost" onclick="resetForm()">Kosongkan</button>
+          <span class="sp" style="flex:1"></span>
+          <button class="btn red hidden" id="fDelete" onclick="deleteBooking()">Hapus</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECAP -->
+    <section id="tab-recap" class="hidden">
+      <div class="card noprint">
+        <div class="row">
+          <div style="width:170px"><label>Bulan</label><input type="month" id="rMonth"></div>
+          <div style="flex:1;min-width:200px"><label>Company / Payment</label><select id="rCompany"></select></div>
+          <div style="width:160px"><label>Status</label>
+            <select id="rStatus"><option value="DONE">Hanya DONE</option><option value="">Semua kecuali Cancel</option></select></div>
+          <button class="btn" onclick="window.print()">Print / PDF</button>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <div><label>Prepared by</label><input id="sPrep" value="Ni Luh Putu Widya Astuti"></div>
+          <div><label>Jabatan</label><input id="sPrepT" value="Admin of Nuanu Guest Mobility"></div>
+          <div><label>Approved by</label><input id="sAppr" placeholder="Nama PIC company"></div>
+          <div><label>Jabatan</label><input id="sApprT" placeholder="Company"></div>
+          <div><label>Acknowledge by</label><input id="sAck" value="Dimas Destrian Caesar"></div>
+          <div><label>Jabatan</label><input id="sAckT" value="Transport Department Manager"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 2px;text-align:center">SERVICE REQUEST RECAP</h3>
+        <p style="margin:0 0 14px;text-align:center" id="rTitle"></p>
+        <div class="tbl"><table>
+          <thead><tr><th>Date</th><th>Driver</th><th>Req By - Guest</th><th>Company</th><th>Time</th><th>Pick Up</th><th>Drop Off</th><th>Trip</th><th class="num">Price</th><th>SO</th></tr></thead>
+          <tbody id="rBody"></tbody>
+          <tfoot><tr><th colspan="8" class="num">TOTAL</th><th class="num" id="rTotal"></th><th></th></tr></tfoot>
+        </table></div>
+        <div class="sign">
+          <div>Prepared by,<div class="ln" id="pPrep"></div><div id="pPrepT"></div></div>
+          <div>Approved by,<div class="ln" id="pAppr"></div><div id="pApprT"></div></div>
+          <div>Acknowledge by,<div class="ln" id="pAck"></div><div id="pAckT"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dash" class="hidden">
+      <div class="card noprint">
+        <div class="row"><div style="width:170px"><label>Bulan</label><input type="month" id="dMonth"></div></div>
+      </div>
+      <div class="stats" id="dStats" style="margin-bottom:14px"></div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+        <div class="card"><p class="sec-title">Revenue per Company (DONE)</p><table><tbody id="dCompany"></tbody></table></div>
+        <div class="card"><p class="sec-title">Trip per Driver (DONE)</p><table><tbody id="dDriver"></tbody></table></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<datalist id="dlCompany"></datalist>
+<datalist id="dlDriver"></datalist>
+<datalist id="dlPayment"></datalist>
+<datalist id="dlCar"></datalist>
+<div id="toast"></div>
+
+<script>
+/* ====== GANTI DENGAN URL WEB APP APPS SCRIPT ====== */
+const API_URL = 'https://script.google.com/macros/s/AKfycbxmxnet_lGKswbLuhjnVO-kiOvx214cXZNuNgd0pr7xm6kfYtX4p1FV9usyqifVGwU/exec';
+/* ================================================== */
+
+const S = { pin: '', master: null, rows: [], range: null, lastId: null };
+const $ = id => document.getElementById(id);
+const rp = n => 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const monthRange = m => { const [y, mo] = m.split('-').map(Number); const last = new Date(y, mo, 0).getDate(); return [m + '-01', m + '-' + String(last).padStart(2, '0')]; };
+const fmtDate = s => { if (!s) return ''; const d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); };
+
+function toast(msg, err) {
+  const t = $('toast'); t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = '', 2600);
+}
+
+async function api(action, payload) {
+  if (API_URL.indexOf('http') !== 0) throw new Error('API_URL belum diisi di index.html');
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action, pin: S.pin }, payload || {}))
+  });
+  const j = await res.json();
+  if (j.auth === false) { logout(); throw new Error('PIN salah'); }
+  if (!j.ok) throw new Error(j.error || 'Gagal');
+  return j.data;
+}
+
+/* ---------- login ---------- */
+async function login() {
+  S.pin = $('pinInput').value.trim();
+  $('loginMsg').textContent = 'Memeriksa…';
+  try {
+    await api('ping');
+    try { sessionStorage.setItem('taxiPin', S.pin); } catch (e) {}
+    $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden');
+    await boot();
+  } catch (e) { $('loginMsg').textContent = e.message; }
+}
+function logout() {
+  try { sessionStorage.removeItem('taxiPin'); } catch (e) {}
+  S.pin = ''; $('appView').classList.add('hidden'); $('loginView').classList.remove('hidden');
+  $('loginMsg').textContent = '';
+}
+$('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+async function boot() {
+  $('lDate').value = today();
+  $('rMonth').value = $('dMonth').value = today().slice(0, 7);
+  resetForm();
+  await loadMaster();
+  await renderList();
+}
+async function reloadAll() { S.range = null; await loadMaster(); await currentTabRender(); toast('Data diperbarui'); }
+
+/* ---------- master data ---------- */
+async function loadMaster() {
+  S.master = await api('master');
+  const L = S.master.lists;
+  const fill = (id, arr) => $(id).innerHTML = arr.map(v => '<option value="' + esc(v) + '">').join('');
+  fill('dlCompany', L.companies); fill('dlDriver', L.drivers); fill('dlPayment', L.payments);
+  fill('dlCar', Array.from(new Set(['BYD', 'ALPHARD'].concat(L.cars))));
+  $('fArea').innerHTML = '<option value="">— pilih area —</option>' +
+    S.master.prices.map((p, i) => '<option value="' + i + '">' + esc(p.area) + ' · ' + rp(p.byd) + ' / ' + rp(p.alphard) + '</option>').join('');
+}
+
+/* ---------- data range cache ---------- */
+async function ensureRange(from, to) {
+  if (S.range && S.range[0] <= from && S.range[1] >= to) return;
+  const f = !S.range ? from : (from < S.range[0] ? from : S.range[0]);
+  const t = !S.range ? to : (to > S.range[1] ? to : S.range[1]);
+  const d = await api('list', { from: f, to: t });
+  S.rows = d.rows; S.range = [f, t];
+}
+function rowsIn(from, to) { return S.rows.filter(r => r.date >= from && r.date <= to); }
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function showTab(t) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  ['list', 'form', 'recap', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
+  currentTabRender();
+}
+function currentTab() { const b = document.querySelector('nav button.on'); return b ? b.dataset.tab : 'list'; }
+async function currentTabRender() {
+  const t = currentTab();
+  try {
+    if (t === 'list') await renderList();
+    if (t === 'recap') await renderRecap();
+    if (t === 'dash') await renderDash();
+  } catch (e) { toast(e.message, true); }
+}
+
+/* ---------- daily list ---------- */
+function setToday() { $('lDate').value = today(); renderList(); }
+function shiftDay(n) { const d = new Date($('lDate').value + 'T00:00:00'); d.setDate(d.getDate() + n); $('lDate').value = d.toISOString().slice(0, 10) === '' ? today() : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); renderList(); }
+['lDate', 'lStatus'].forEach(id => $(id).addEventListener('change', renderList));
+$('lSearch').addEventListener('input', () => renderList(true));
+
+async function renderList(noFetch) {
+  const day = $('lDate').value || today();
+  $('lBody').innerHTML = '<tr><td colspan="8" class="muted">Memuat…</td></tr>';
+  try { if (!noFetch) await ensureRange(day, day); } catch (e) { toast(e.message, true); }
+  const st = $('lStatus').value, q = $('lSearch').value.trim().toUpperCase();
+  let rows = rowsIn(day, day);
+  const all = rows;
+  if (st) rows = rows.filter(r => (r.depart || 'PENDING') === st);
+  if (q) rows = rows.filter(r => [r.guest, r.company, r.driver, r.pickup, r.dropoff, r.flight].join(' ').toUpperCase().indexOf(q) >= 0);
+  rows.sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+
+  const done = all.filter(r => r.depart === 'DONE'), pend = all.filter(r => (r.depart || 'PENDING') === 'PENDING');
+  const canc = all.filter(r => r.depart === 'CANCELLED');
+  $('lStats').innerHTML = stat('Total booking', all.length) + stat('Pending', pend.length) + stat('Done', done.length) +
+    stat('Cancelled', canc.length) + stat('Revenue (Done)', rp(sum(done)));
+
+  $('lBody').innerHTML = rows.length ? rows.map(r => {
+    const s = r.depart || 'PENDING';
+    return '<tr>' +
+      '<td><b>' + esc(r.time) + '</b>' + (r.flight ? '<div class="small muted">' + esc(r.flight) + '</div>' : '') + '</td>' +
+      '<td><b>' + esc(r.guest) + '</b><div class="small muted">' + esc(r.company) + '</div></td>' +
+      '<td>' + esc(r.pickup) + '<div class="small muted">→ ' + esc(r.dropoff) + '</div></td>' +
+      '<td class="hide-sm">' + esc(r.trip) + '<div class="small muted">' + esc(r.car) + '</div></td>' +
+      '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') + '</td>' +
+      '<td class="num">' + (r.charges ? rp(r.charges) : '<span class="muted">—</span>') + '<div class="small muted">' + esc(r.payment) + '</div></td>' +
+      '<td><span class="chip ' + s + '">' + s + '</span></td>' +
+      '<td><div class="acts">' +
+        (s !== 'DONE' ? '<button class="btn sm" onclick="setStatus(\'' + r.id + '\',\'DONE\')">Done</button>' : '') +
+        (s !== 'CANCELLED' ? '<button class="btn sm red" onclick="setStatus(\'' + r.id + '\',\'CANCELLED\')">Cancel</button>' : '') +
+        (s !== 'PENDING' ? '<button class="btn sm amber" onclick="setStatus(\'' + r.id + '\',\'PENDING\')">Pending</button>' : '') +
+        '<button class="btn sm ghost" onclick="editBooking(\'' + r.id + '\')">Edit</button>' +
+        '<button class="btn sm ghost" onclick="copyBooking(\'' + r.id + '\')">Duplikat</button>' +
+      '</div></td></tr>';
+  }).join('') : '<tr><td colspan="8" class="muted">Tidak ada booking.</td></tr>';
+}
+function stat(k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; }
+function sum(rows) { return rows.reduce((a, r) => a + (Number(r.charges) || 0), 0); }
+
+async function setStatus(id, status) {
+  if (status === 'CANCELLED' && !confirm('Cancel booking ini?')) return;
+  try {
+    await api('status', { id: id, status: status });
+    const r = S.rows.find(x => x.id === id);
+    if (r) { r.depart = status; if (status === 'CANCELLED') r.driver = 'CANCELLED'; }
+    toast('Status: ' + status); renderList(true);
+  } catch (e) { toast(e.message, true); }
+}
+
+/* ---------- form ---------- */
+const FORM = { date: 'fDate', time: 'fTime', guest: 'fGuest', company: 'fCompany', flight: 'fFlight', pickup: 'fPickup',
+  dropoff: 'fDropoff', trip: 'fTrip', car: 'fCar', driver: 'fDriver', driverType: 'fDriverType', depart: 'fDepart',
+  payment: 'fPayment', payStatus: 'fPayStatus', charges: 'fCharges', purpose: 'fPurpose', invStatus: 'fInvStatus',
+  invNo: 'fInvNo', soNo: 'fSoNo' };
+
+function resetForm() {
+  Object.values(FORM).forEach(id => { const el = $(id); el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
+  $('fId').value = ''; $('fDate').value = $('lDate').value || today(); $('fCar').value = 'BYD';
+  $('fArea').value = ''; $('fPax').value = 'customer';
+  $('fTitle').textContent = 'Booking Baru'; $('fSave').textContent = 'Simpan Booking';
+  $('fDelete').classList.add('hidden'); $('fClash').classList.add('hidden');
+  $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.';
+  S.chargesTouched = false;
+}
+
+function fillForm(r, asCopy) {
+  resetForm();
+  Object.keys(FORM).forEach(k => { const el = $(FORM[k]); el.value = r[k] == null ? '' : r[k]; if (el.tagName === 'SELECT' && el.value !== String(r[k] || '') && r[k]) { const o = document.createElement('option'); o.textContent = r[k]; el.appendChild(o); el.value = r[k]; } });
+  if (r.driver === 'CANCELLED') $('fDriver').value = '';
+  if (asCopy) { $('fDepart').value = 'PENDING'; $('fPayStatus').value = ''; $('fInvStatus').value = ''; $('fInvNo').value = ''; $('fDriver').value = ''; }
+  else { $('fId').value = r.id; $('fTitle').textContent = 'Edit Booking ' + r.id; $('fSave').textContent = 'Simpan Perubahan'; $('fDelete').classList.remove('hidden'); }
+  $('fCharges').value = r.charges || '';
+  S.chargesTouched = true;
+  guessArea();
+  checkClash();
+}
+function editBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) return; showTab('form'); fillForm(r, false); }
+function copyBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) return; showTab('form'); fillForm(r, true); toast('Data disalin — ganti tanggal/jam'); }
+
+$('fCharges').addEventListener('input', () => { S.chargesTouched = true; });
+['fArea', 'fPax', 'fTrip', 'fCar', 'fCompany'].forEach(id => $(id).addEventListener('change', () => applyPrice(false)));
+['fDropoff', 'fPickup'].forEach(id => $(id).addEventListener('change', () => { if ($('fArea').value === '') { guessArea(); applyPrice(false); } }));
+['fDriver', 'fDate', 'fTime'].forEach(id => $(id).addEventListener('change', checkClash));
+$('fCompany').addEventListener('change', autoPayment);
+
+function guessArea() {
+  if (!S.master) return;
+  const trip = $('fTrip').value;
+  const rent = trip.match(/RENT\s*(\d+)/);
+  const P = S.master.prices;
+  if (rent) { const i = P.findIndex(p => new RegExp('^' + rent[1] + '\\s*Hour', 'i').test(p.area)); if (i >= 0) { $('fArea').value = i; return; } }
+  const text = ($('fDropoff').value + ' ' + $('fPickup').value).toUpperCase();
+  if (/AIRPORT|BANDARA|NGURAH RAI/.test(text)) { const i = P.findIndex(p => /airport/i.test(p.area)); if (i >= 0) { $('fArea').value = i; return; } }
+  for (let i = 0; i < P.length; i++) {
+    const names = P[i].area.toUpperCase().split(/[\/\-]/).map(s => s.trim()).filter(s => s.length > 2 && !/HOUR/.test(s));
+    if (names.some(n => text.indexOf(n) >= 0)) { $('fArea').value = i; return; }
+  }
+}
+
+function normCo(s) { return String(s || '').toUpperCase().replace(/ACCOMMODATION/, 'ACCOMODATION').replace(/[^A-Z0-9 ]/g, '').trim(); }
+function findRule(company) {
+  if (!S.master) return null;
+  const c = normCo(company);
+  const R = S.master.rules;
+  if (!c) return null;
+  let r = R.find(x => normCo(x.partner) === c) || R.find(x => c.indexOf(normCo(x.partner)) >= 0 && normCo(x.partner).length > 2);
+  if (r) return r;
+  if (/DIRECT|PERSONAL/.test(c)) return null;           // customer langsung → harga normal
+  return R.find(x => /INTERNAL|INRTERNAL/.test(normCo(x.partner))) || null; // department internal
+}
+
+function calcPrice() {
+  const idx = $('fArea').value;
+  if (idx === '' || !S.master) return null;
+  const p = S.master.prices[idx];
+  const car = $('fCar').value.toUpperCase();
+  const lux = /ALPHARD|LUX/.test(car);
+  let base = lux ? p.alphard : p.byd;
+  const notes = [];
+  if (!/BYD|ALPHARD|LUX/.test(car) && car) notes.push('Mobil ' + car + ' tidak ada di price list — harga BYD dipakai, cek manual.');
+  const trip = $('fTrip').value;
+  const rentTrip = /RENT/.test(trip);
+  if (/ROUND/.test(trip) && !/hour/i.test(p.area)) { base = base * 2; notes.push('Round trip = 2 × harga single.'); }
+  if (rentTrip && !/hour/i.test(p.area)) notes.push('Trip RENT tapi area bukan paket jam — pilih area "x Hour Rent".');
+
+  const pax = $('fPax').value;
+  const company = $('fCompany').value;
+  const rule = findRule(company);
+  let final = base, ruleTxt = 'Harga normal (tidak ada aturan khusus untuk company ini).';
+  if (rule) {
+    const r = rule[pax];
+    ruleTxt = rule.partner.trim() + ' · ' + (pax === 'employee' ? 'Employee' : 'Customer') + ': ' + r.label;
+    if (r.mode === 'discount') final = base * (100 - r.pct) / 100;
+    if (r.mode === 'flat' && r.amount) final = r.amount;
+    if (r.mode === 'sharing') notes.push('Sharing profit — harga normal dicatat.');
+  } else if (pax === 'employee') {
+    const ir = S.master.rules.find(x => /INTERNAL|INRTERNAL/.test(normCo(x.partner)));
+    if (ir && ir.employee.mode === 'discount') { final = base * (100 - ir.employee.pct) / 100; ruleTxt = 'Employee: ' + ir.employee.label; }
+  }
+  final = Math.round(final / 500) * 500;
+  return { base: base, final: final, ruleTxt: ruleTxt, notes: notes, area: p.area };
+}
+
+function applyPrice(force) {
+  const r = calcPrice();
+  if (!r) { $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.'; return; }
+  if (force || !S.chargesTouched) { $('fCharges').value = r.final; if (force) S.chargesTouched = false; }
+  $('fPriceInfo').innerHTML = '<b>' + esc(r.area) + '</b> · harga dasar ' + rp(r.base) + ' → <b>' + rp(r.final) + '</b><br>' + esc(r.ruleTxt) +
+    (r.notes.length ? '<br>' + r.notes.map(esc).join('<br>') : '') +
+    (S.chargesTouched && Number($('fCharges').value) !== r.final ? '<br><i>Charges diubah manual — klik "Hitung ulang" untuk pakai harga otomatis.</i>' : '');
+}
+
+function autoPayment() {
+  if ($('fPayment').value) return;
+  const c = normCo($('fCompany').value);
+  const map = { OSHOM: 'PT. OSHOM BALI GROUP', HANDARA: 'PT BRR (HANDARA)', NRE: 'NRE (SERVICE REQ)', LUNA: 'LUNA BEACH CLUB', NSF: 'YDSN (Yayasan Dana Sosial Nuanu)', 'DIRECT ORDER': 'TRANSFER' };
+  if (map[c]) $('fPayment').value = map[c];
+  else if (c) $('fPayment').value = 'PT WFV (SERVICE REQ)';
+}
+
+async function checkClash() {
+  const drv = $('fDriver').value.trim().toUpperCase(), day = $('fDate').value, tm = $('fTime').value;
+  const box = $('fClash');
+  if (!drv || !day || !tm) { box.classList.add('hidden'); return; }
+  try { await ensureRange(day, day); } catch (e) { return; }
+  const mins = t => { const [h, m] = (t || '').split(':').map(Number); return h * 60 + (m || 0); };
+  const near = rowsIn(day, day).filter(r => r.id !== $('fId').value && r.driver === drv && r.depart !== 'CANCELLED' && r.time && Math.abs(mins(r.time) - mins(tm)) < 90);
+  if (near.length) {
+    box.innerHTML = '<b>Cek jadwal driver:</b> ' + esc(drv) + ' sudah punya booking dekat jam ini — ' +
+      near.map(r => esc(r.time) + ' ' + esc(r.pickup) + ' → ' + esc(r.dropoff)).join('; ');
+    box.classList.remove('hidden');
+  } else box.classList.add('hidden');
+}
+
+function readForm() {
+  const o = {};
+  Object.keys(FORM).forEach(k => o[k] = $(FORM[k]).value.trim());
+  o.charges = String(o.charges).replace(/[^\d]/g, '');
+  if ($('fId').value) o.id = $('fId').value;
+  return o;
+}
+
+async function saveBooking() {
+  const b = readForm();
+  const miss = [['date', 'Tanggal'], ['time', 'Jam'], ['guest', 'Guest'], ['company', 'Company'], ['pickup', 'Pick up'], ['dropoff', 'Drop off']].filter(x => !b[x[0]]).map(x => x[1]);
+  if (miss.length) { toast('Wajib diisi: ' + miss.join(', '), true); return; }
+  const btn = $('fSave'); btn.disabled = true;
+  try {
+    if (b.id) await api('update', { booking: b }); else await api('create', { booking: b });
+    toast(b.id ? 'Perubahan disimpan' : 'Booking tersimpan');
+    S.range = null;
+    $('lDate').value = b.date;
+    resetForm();
+    showTab('list');
+  } catch (e) { toast(e.message, true); }
+  btn.disabled = false;
+}
+
+async function deleteBooking() {
+  const id = $('fId').value;
+  if (!id || !confirm('Hapus booking ini dari sheet? (Untuk pembatalan biasa pakai Cancel)')) return;
+  try { await api('remove', { id: id }); toast('Booking dihapus'); S.range = null; resetForm(); showTab('list'); }
+  catch (e) { toast(e.message, true); }
+}
+
+/* ---------- recap ---------- */
+['rMonth', 'rCompany', 'rStatus'].forEach(id => $(id).addEventListener('change', () => renderRecap(id !== 'rMonth')));
+['sPrep', 'sPrepT', 'sAppr', 'sApprT', 'sAck', 'sAckT'].forEach(id => $(id).addEventListener('input', syncSign));
+function syncSign() { ['Prep', 'PrepT', 'Appr', 'ApprT', 'Ack', 'AckT'].forEach(k => $('p' + k).textContent = $('s' + k).value); }
+
+async function renderRecap(keepCompany) {
+  const m = $('rMonth').value || today().slice(0, 7);
+  const [f, t] = monthRange(m);
+  $('rBody').innerHTML = '<tr><td colspan="10" class="muted">Memuat…</td></tr>';
+  await ensureRange(f, t);
+  const all = rowsIn(f, t).filter(r => r.depart !== 'CANCELLED');
+  const groups = {};
+  all.forEach(r => { const k = r.company || '(kosong)'; groups[k] = (groups[k] || 0) + 1; });
+  const pays = {};
+  all.forEach(r => { if (r.payment) pays[r.payment] = (pays[r.payment] || 0) + 1; });
+  const cur = $('rCompany').value;
+  $('rCompany').innerHTML = '<optgroup label="Company">' + Object.keys(groups).sort().map(k => '<option value="C|' + esc(k) + '">' + esc(k) + ' (' + groups[k] + ')</option>').join('') + '</optgroup>' +
+    '<optgroup label="Payment / Ditagihkan ke">' + Object.keys(pays).sort().map(k => '<option value="P|' + esc(k) + '">' + esc(k) + ' (' + pays[k] + ')</option>').join('') + '</optgroup>';
+  if (keepCompany && cur && [...$('rCompany').options].some(o => o.value === cur)) $('rCompany').value = cur;
+  const sel = $('rCompany').value || '';
+  const [type, key] = [sel.slice(0, 1), sel.slice(2)];
+  let rows = all.filter(r => type === 'P' ? r.payment === key : (r.company || '(kosong)') === key);
+  if ($('rStatus').value === 'DONE') rows = rows.filter(r => r.depart === 'DONE');
+  rows.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const mName = new Date(f + 'T00:00:00').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  $('rTitle').textContent = 'NUANU GUEST MOBILITY — ' + key + ' — ' + mName;
+  $('rBody').innerHTML = rows.length ? rows.map(r => '<tr><td>' + fmtDate(r.date) + '</td><td>' + esc(r.driver) + '</td><td>' + esc(r.guest) + '</td><td>' + esc(r.company) +
+    '</td><td>' + esc(r.time) + '</td><td>' + esc(r.pickup) + '</td><td>' + esc(r.dropoff) + '</td><td>' + esc(r.trip) + '</td><td class="num">' + rp(r.charges) + '</td><td>' + esc(r.soNo) + '</td></tr>').join('')
+    : '<tr><td colspan="10" class="muted">Tidak ada data.</td></tr>';
+  $('rTotal').textContent = rp(sum(rows));
+  if (!$('sApprT').value || $('sApprT').dataset.auto === '1') { $('sApprT').value = key; $('sApprT').dataset.auto = '1'; }
+  syncSign();
+}
+
+/* ---------- dashboard ---------- */
+$('dMonth').addEventListener('change', renderDash);
+async function renderDash() {
+  const m = $('dMonth').value || today().slice(0, 7);
+  const [f, t] = monthRange(m);
+  await ensureRange(f, t);
+  const all = rowsIn(f, t);
+  const done = all.filter(r => r.depart === 'DONE');
+  const canc = all.filter(r => r.depart === 'CANCELLED');
+  const pend = all.filter(r => (r.depart || 'PENDING') === 'PENDING');
+  const isInternal = r => /SERVICE REQ|WFV|YDSN|PUBLIC RELATIONS|EVENT TEAM/i.test(r.payment || '');
+  $('dStats').innerHTML = stat('Booking DONE', done.length) + stat('Revenue DONE', rp(sum(done))) + stat('Pending', pend.length) +
+    stat('Cancelled', canc.length) + stat('Internal (WO)', done.filter(isInternal).length) + stat('External / Direct', done.filter(r => !isInternal(r)).length);
+  const by = (rows, key, val) => { const o = {}; rows.forEach(r => { const k = r[key] || '—'; o[k] = (o[k] || 0) + val(r); }); return Object.entries(o).sort((a, b) => b[1] - a[1]); };
+  const rev = by(done, 'company', r => Number(r.charges) || 0);
+  const maxR = rev.length ? rev[0][1] : 1;
+  $('dCompany').innerHTML = rev.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td style="width:40%"><div class="bar"><i style="width:' + (v / maxR * 100) + '%"></i></div></td><td class="num">' + rp(v) + '</td></tr>').join('') || '<tr><td class="muted">Belum ada data.</td></tr>';
+  const drv = by(done.filter(r => r.driver && r.driver !== 'CANCELLED'), 'driver', () => 1);
+  const maxD = drv.length ? drv[0][1] : 1;
+  $('dDriver').innerHTML = drv.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td style="width:50%"><div class="bar"><i style="width:' + (v / maxD * 100) + '%"></i></div></td><td class="num">' + v + ' trip</td></tr>').join('') || '<tr><td class="muted">Belum ada data.</td></tr>';
+}
+
+/* ---------- auto login ---------- */
+try { const p = sessionStorage.getItem('taxiPin'); if (p) { $('pinInput').value = p; login(); } } catch (e) {}
+</script>
+</body>
+</html>
