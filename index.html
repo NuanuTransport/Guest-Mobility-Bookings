@@ -63,7 +63,6 @@
   .login{max-width:360px;margin:12vh auto}
   .acts{display:flex;gap:4px;flex-wrap:wrap}
   .sec-title{font-size:13px;font-weight:700;margin:0 0 10px}
-  .sign{display:none}
   @media print{
     header,nav,.noprint,#toast{display:none!important}
     body{background:#fff}
@@ -71,8 +70,6 @@
     .card{border:0;padding:0}
     .tbl{max-height:none;overflow:visible;border:0}
     th{position:static}
-    .sign{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:40px;text-align:center}
-    .sign .ln{margin-top:60px;font-weight:700;border-top:1px solid #000;padding-top:4px}
   }
   @media (max-width:640px){ main{padding:12px} .hide-sm{display:none} }
 </style>
@@ -100,7 +97,6 @@
   <nav>
     <button data-tab="list" class="on">Booking Harian</button>
     <button data-tab="form">+ Booking Baru</button>
-    <button data-tab="recap">Recap Tagihan</button>
     <button data-tab="dash">Dashboard</button>
   </nav>
   <main>
@@ -136,7 +132,7 @@
           <div><label>Booking Date *</label><input type="date" id="fDate"></div>
           <div><label>Pick Up Time *</label><input type="time" id="fTime"></div>
           <div><label>Req By - Guest Name *</label><input id="fGuest" placeholder="SUKMA - MR JOHN"></div>
-          <div><label>Company *</label><input id="fCompany" list="dlCompany" placeholder="OSHOM, NRE, DIRECT ORDER…"></div>
+          <div><label>Company *</label><select id="fCompany"></select></div>
           <div><label>Details Flight</label><input id="fFlight" placeholder="QR960"></div>
           <div><label>Pick Up *</label><input id="fPickup"></div>
           <div><label>Drop Off *</label><input id="fDropoff"></div>
@@ -156,6 +152,7 @@
           <div><label>Penumpang</label>
             <select id="fPax"><option value="CUSTOMER">Customer / Guest</option><option value="EMPLOYEE">Employee / Staff Nuanu</option></select>
             <div class="small muted" id="fPaxHint" style="margin-top:4px"></div></div>
+          <div id="fWaitBox" class="hidden"><label>Waiting (jam) — Emergency</label><input id="fWait" type="number" min="0" step="0.5" value="0"></div>
           <div><label>Charges (Rp)</label><input id="fCharges" inputmode="numeric"></div>
           <div style="display:flex;align-items:end"><button class="btn ghost" type="button" onclick="applyPrice(true)">Hitung ulang</button></div>
         </div>
@@ -170,7 +167,7 @@
             <select id="fDriverType"><option value="">Reguler</option><option>PART TIME</option></select></div>
           <div><label>Depart Status</label>
             <select id="fDepart"><option>PENDING</option><option>DONE</option><option>CANCELLED</option></select></div>
-          <div><label>Payment</label><input id="fPayment" list="dlPayment" placeholder="PT. OSHOM BALI GROUP / TRANSFER / CASH"></div>
+          <div><label>Payment</label><select id="fPayment"></select></div>
           <div><label>Status (Pembayaran)</label>
             <select id="fPayStatus"><option value=""></option><option>PENDING</option><option>DONE</option><option>CANCELED</option></select></div>
           <div><label>Purpose</label><input id="fPurpose"></div>
@@ -185,41 +182,6 @@
           <button class="btn ghost" onclick="resetForm()">Kosongkan</button>
           <span class="sp" style="flex:1"></span>
           <button class="btn red hidden" id="fDelete" onclick="deleteBooking()">Hapus</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- RECAP -->
-    <section id="tab-recap" class="hidden">
-      <div class="card noprint">
-        <div class="row">
-          <div style="width:170px"><label>Bulan</label><input type="month" id="rMonth"></div>
-          <div style="flex:1;min-width:200px"><label>Company / Payment</label><select id="rCompany"></select></div>
-          <div style="width:160px"><label>Status</label>
-            <select id="rStatus"><option value="DONE">Hanya DONE</option><option value="">Semua kecuali Cancel</option></select></div>
-          <button class="btn" onclick="window.print()">Print / PDF</button>
-        </div>
-        <div class="grid" style="margin-top:12px">
-          <div><label>Prepared by</label><input id="sPrep" value="Ni Luh Putu Widya Astuti"></div>
-          <div><label>Jabatan</label><input id="sPrepT" value="Admin of Nuanu Guest Mobility"></div>
-          <div><label>Approved by</label><input id="sAppr" placeholder="Nama PIC company"></div>
-          <div><label>Jabatan</label><input id="sApprT" placeholder="Company"></div>
-          <div><label>Acknowledge by</label><input id="sAck" value="Dimas Destrian Caesar"></div>
-          <div><label>Jabatan</label><input id="sAckT" value="Transport Department Manager"></div>
-        </div>
-      </div>
-      <div class="card">
-        <h3 style="margin:0 0 2px;text-align:center">SERVICE REQUEST RECAP</h3>
-        <p style="margin:0 0 14px;text-align:center" id="rTitle"></p>
-        <div class="tbl"><table>
-          <thead><tr><th>Date</th><th>Driver</th><th>Req By - Guest</th><th>Company</th><th>Time</th><th>Pick Up</th><th>Drop Off</th><th>Trip</th><th class="num">Price</th><th>SO</th></tr></thead>
-          <tbody id="rBody"></tbody>
-          <tfoot><tr><th colspan="8" class="num">TOTAL</th><th class="num" id="rTotal"></th><th></th></tr></tfoot>
-        </table></div>
-        <div class="sign">
-          <div>Prepared by,<div class="ln" id="pPrep"></div><div id="pPrepT"></div></div>
-          <div>Approved by,<div class="ln" id="pAppr"></div><div id="pApprT"></div></div>
-          <div>Acknowledge by,<div class="ln" id="pAck"></div><div id="pAckT"></div></div>
         </div>
       </div>
     </section>
@@ -239,9 +201,7 @@
   </main>
 </div>
 
-<datalist id="dlCompany"></datalist>
 <datalist id="dlDriver"></datalist>
-<datalist id="dlPayment"></datalist>
 <datalist id="dlCar"></datalist>
 <div id="toast"></div>
 
@@ -250,8 +210,70 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxmxnet_lGKswbLuhjnVO-kiOvx214cXZNuNgd0pr7xm6kfYtX4p1FV9usyqifVGwU/exec';
 /* ================================================== */
 
+/* ---------- DAFTAR COMPANY & PAYMENT (edit di sini) ---------- */
+const COMPANIES = ['PUBLIC RELATIONS', 'BRAND AND COMM', 'LUNA BEACH CLUB', 'NUANU REAL ESTATE', 'NUANU ACCOMMODATION',
+  'OSHOM', 'LUMEIRA', 'MAGIC GARDEN', 'SOL STUDIO', 'LABYRINTH', 'BIOM', 'PROED GLOBAL SCHOOL', 'HANDARA',
+  'PARATAMA GARDA MASA', 'NUANU SOCIAL FUND', 'NUANU EVENT', 'NUANU EXPERIENCE', 'SERVICE AND MEDIC SUPPORT',
+  'ART VILLAGE', 'LEGAL', 'ENVIRONMENTAL', 'EDEN UBUD', 'OPERATIONAL', 'DIRECT ORDER'];
+const DIRECT_COMPANY = 'DIRECT ORDER';               // Nuanu guest / payment personal
+const PAY_DIRECT = ['CASH', 'CARD', 'QRIS', 'TRANSFER'];
+const PAY_COMPANY = ['PT. Eden Restaurant (Luna)', 'Public Relation (PR)', 'Brand and Comm (Brand Team)',
+  'PT Proeducation Indonesia (ProEd)', 'PT Ash Music Lab (ASH)', 'PT Horizon (Horizon Glasswork)',
+  'PT Phoenix Creating Light (Phoenix)', 'PT The Labyrinth Collective (Labyrinth)', 'PT Nuanu Property Group (NPG)',
+  'PT Nuanu Real Estate (NRE)', 'PT Basic Element Space', 'Paratama Garda Masa (Security Team)',
+  'Yayasan Nuanu Junior Angel (Kids Academy)', 'PT Pacha Alpaca Project', 'PT Bedogoel Residence and Resort (Handara)',
+  'PT Eugene Nuanu Indonesia', 'PT Unit Nuanu Property', 'PT Unit Space Management',
+  'PT Wooden Fish Management (Nuanu Social Fund, Operational)', 'PT Wooden Fish Village (Legal)',
+  'Nuanu Event', 'Nuanu Experience', 'Environmental', 'PT Baza Origins Bali', 'PT Sol Studio Bali',
+  'PT Bali Baza Development', 'PT Oshom Bali Group (Oshom)', 'PT Harmony Health Wellness (Lumeira)'];
+// Payment otomatis saat company dipilih (boleh diganti manual)
+const PAY_BY_COMPANY = {
+  'PUBLIC RELATIONS': 'Public Relation (PR)',
+  'BRAND AND COMM': 'Brand and Comm (Brand Team)',
+  'LUNA BEACH CLUB': 'PT. Eden Restaurant (Luna)',
+  'NUANU REAL ESTATE': 'PT Nuanu Real Estate (NRE)',
+  'OSHOM': 'PT Oshom Bali Group (Oshom)',
+  'LUMEIRA': 'PT Harmony Health Wellness (Lumeira)',
+  'SOL STUDIO': 'PT Sol Studio Bali',
+  'LABYRINTH': 'PT The Labyrinth Collective (Labyrinth)',
+  'PROED GLOBAL SCHOOL': 'PT Proeducation Indonesia (ProEd)',
+  'HANDARA': 'PT Bedogoel Residence and Resort (Handara)',
+  'PARATAMA GARDA MASA': 'Paratama Garda Masa (Security Team)',
+  'NUANU SOCIAL FUND': 'PT Wooden Fish Management (Nuanu Social Fund, Operational)',
+  'OPERATIONAL': 'PT Wooden Fish Management (Nuanu Social Fund, Operational)',
+  'LEGAL': 'PT Wooden Fish Village (Legal)',
+  'NUANU EVENT': 'Nuanu Event',
+  'NUANU EXPERIENCE': 'Nuanu Experience',
+  'ENVIRONMENTAL': 'Environmental'
+};
+// Nama company → nama Business Partner di tab LIST WO dan DIRECT PAYMENT
+const RULE_ALIAS = {
+  'NUANU REAL ESTATE': 'NRE',
+  'NUANU ACCOMMODATION': 'ACCOMODATION',
+  'LUNA BEACH CLUB': 'LUNA',
+  'SERVICE AND MEDIC SUPPORT': 'EMERGENCY'
+};
+// Selalu harga normal (customer maupun employee)
+const NORMAL_PRICE = ['SOL STUDIO', 'LABYRINTH', 'BIOM', 'PROED GLOBAL SCHOOL', 'EDEN UBUD'];
+// Agreement flat bulanan → charges per trip = 0, ditagih bulanan
+const MONTHLY_FLAT = { 'HANDARA': 18000000 };
+// Tarif waiting untuk aturan Emergency (dipakai kalau remark di sheet tidak menyebut angka)
+const WAITING_PER_HOUR = 50000;
+// Department internal Nuanu → pakai aturan INTERNAL REQUEST
+const INTERNAL_DEPTS = ['PUBLIC RELATIONS', 'BRAND AND COMM', 'NUANU SOCIAL FUND', 'NUANU EVENT', 'NUANU EXPERIENCE',
+  'LEGAL', 'ENVIRONMENTAL', 'OPERATIONAL', 'PARATAMA GARDA MASA'];
+/* ------------------------------------------------------------- */
+
 const S = { pin: '', master: null, rows: [], range: null, lastId: null };
 const $ = id => document.getElementById(id);
+(function buildSelects() {
+  const o = v => '<option value="' + v.replace(/"/g, '&quot;') + '">' + v + '</option>';
+  document.getElementById('fCompany').innerHTML = '<option value="">— pilih company —</option>' +
+    COMPANIES.map(c => '<option value="' + c + '">' + (c === DIRECT_COMPANY ? c + ' (Nuanu guest / payment personal)' : c) + '</option>').join('');
+  document.getElementById('fPayment').innerHTML = '<option value="">— pilih payment —</option>' +
+    '<optgroup label="Direct Order">' + PAY_DIRECT.map(o).join('') + '</optgroup>' +
+    '<optgroup label="Company / ditagihkan ke">' + PAY_COMPANY.map(o).join('') + '</optgroup>';
+})();
 const rp = n => 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -296,7 +318,7 @@ $('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') login();
 
 async function boot() {
   $('lDate').value = today();
-  $('rMonth').value = $('dMonth').value = today().slice(0, 7);
+  $('dMonth').value = today().slice(0, 7);
   resetForm();
   await loadMaster();
   await renderList();
@@ -308,10 +330,10 @@ async function loadMaster() {
   S.master = await api('master');
   const L = S.master.lists;
   const fill = (id, arr) => $(id).innerHTML = arr.map(v => '<option value="' + esc(v) + '">').join('');
-  fill('dlCompany', L.companies); fill('dlDriver', L.drivers); fill('dlPayment', L.payments);
+  fill('dlDriver', L.drivers);
   fill('dlCar', Array.from(new Set(['BYD', 'ALPHARD'].concat(L.cars))));
   $('fArea').innerHTML = '<option value="">— pilih area —</option>' +
-    S.master.prices.map((p, i) => '<option value="' + i + '">' + esc(p.area) + ' · ' + rp(p.byd) + ' / ' + rp(p.alphard) + '</option>').join('');
+    S.master.prices.map((p, i) => '<option value="' + i + '">' + esc(p.area) + ' · BYD ' + rp(p.byd) + ' / Alphard ' + rp(p.alphard) + '</option>').join('');
 }
 
 /* ---------- data range cache ---------- */
@@ -328,7 +350,7 @@ function rowsIn(from, to) { return S.rows.filter(r => r.date >= from && r.date <
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(t) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['list', 'form', 'recap', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
+  ['list', 'form', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
   currentTabRender();
 }
 function currentTab() { const b = document.querySelector('nav button.on'); return b ? b.dataset.tab : 'list'; }
@@ -336,7 +358,6 @@ async function currentTabRender() {
   const t = currentTab();
   try {
     if (t === 'list') await renderList();
-    if (t === 'recap') await renderRecap();
     if (t === 'dash') await renderDash();
   } catch (e) { toast(e.message, true); }
 }
@@ -405,10 +426,11 @@ function resetForm() {
   Object.values(FORM).forEach(id => { const el = $(id); el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
   $('fId').value = ''; $('fDate').value = $('lDate').value || today(); $('fCar').value = 'BYD';
   $('fArea').value = ''; $('fPax').value = 'CUSTOMER'; $('fPaxHint').textContent = '';
+  $('fWait').value = 0; $('fWaitBox').classList.add('hidden');
   $('fTitle').textContent = 'Booking Baru'; $('fSave').textContent = 'Simpan Booking';
   $('fDelete').classList.add('hidden'); $('fClash').classList.add('hidden');
   $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.';
-  S.chargesTouched = false; S.paxTouched = false;
+  S.chargesTouched = false; S.paxTouched = false; S.payAuto = false;
 }
 
 function fillForm(r, asCopy) {
@@ -449,6 +471,7 @@ function guessPax() {
   $('fPaxHint').textContent = why || (g ? 'Otomatis: Customer. Ganti ke Employee kalau penumpangnya staff.' : '');
 }
 ['fArea', 'fPax', 'fTrip', 'fCar', 'fCompany'].forEach(id => $(id).addEventListener('change', () => applyPrice(false)));
+$('fWait').addEventListener('input', () => applyPrice(false));
 ['fDropoff', 'fPickup'].forEach(id => $(id).addEventListener('change', () => { if ($('fArea').value === '') { guessArea(); applyPrice(false); } }));
 ['fDriver', 'fDate', 'fTime'].forEach(id => $(id).addEventListener('change', checkClash));
 $('fCompany').addEventListener('change', autoPayment);
@@ -467,66 +490,92 @@ function guessArea() {
   }
 }
 
-function normCo(s) { return String(s || '').toUpperCase().replace(/ACCOMMODATION/, 'ACCOMODATION').replace(/[^A-Z0-9 ]/g, '').trim(); }
+function normCo(s) { return String(s || '').toUpperCase().replace(/ACCOMMODATION/, 'ACCOMODATION').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+function internalRule() { return S.master.rules.find(x => /INTERNAL|INRTERNAL/.test(normCo(x.partner))) || null; }
 function findRule(company) {
   if (!S.master) return null;
-  const c = normCo(company);
+  const up = String(company || '').toUpperCase().trim();
+  if (!up || up === DIRECT_COMPANY || NORMAL_PRICE.indexOf(up) >= 0) return null; // harga normal
+  const c = normCo(RULE_ALIAS[up] || up);
   const R = S.master.rules;
-  if (!c) return null;
-  let r = R.find(x => normCo(x.partner) === c) || R.find(x => c.indexOf(normCo(x.partner)) >= 0 && normCo(x.partner).length > 2);
+  const r = R.find(x => normCo(x.partner) === c) ||
+    R.find(x => { const p = normCo(x.partner); return p.length > 2 && (' ' + c + ' ').indexOf(' ' + p + ' ') >= 0; });
   if (r) return r;
-  if (/DIRECT|PERSONAL/.test(c)) return null;           // customer langsung → harga normal
-  return R.find(x => /INTERNAL|INRTERNAL/.test(normCo(x.partner))) || null; // department internal
+  if (INTERNAL_DEPTS.indexOf(up) >= 0) return internalRule();    // department internal
+  return null;                                                   // tidak ada aturan → harga normal
 }
 
 function calcPrice() {
+  if (!S.master) return null;
+  const company = $('fCompany').value;
+  const pax = $('fPax').value.toLowerCase();
+  const rule = findRule(company);
+  const isEmergency = !!(rule && /EMERGENCY/i.test(rule.partner));
+  $('fWaitBox').classList.toggle('hidden', !isEmergency);
+
+  // Agreement flat bulanan (Handara)
+  if (MONTHLY_FLAT[company]) {
+    return { base: 0, final: 0, area: company, rate: 'Agreement', notes: [],
+      ruleTxt: 'Flat ' + rp(MONTHLY_FLAT[company]) + ' per bulan sesuai agreement — charges per trip 0, ditagih bulanan.' };
+  }
+  // Emergency: flat customer/employee + waiting per jam (tidak butuh area)
+  if (isEmergency && rule[pax].mode === 'flat' && rule[pax].amount) {
+    const m = String(rule.remark || '').match(/waiting[^\d]*(\d+)\s*K/i);
+    const perHr = m ? Number(m[1]) * 1000 : WAITING_PER_HOUR;
+    const hrs = Number($('fWait').value) || 0;
+    const fin = rule[pax].amount + hrs * perHr;
+    return { base: rule[pax].amount, final: fin, area: 'Emergency', rate: 'Flat', notes: hrs ? ['Waiting ' + hrs + ' jam × ' + rp(perHr) + '.'] : ['Waiting ' + rp(perHr) + '/jam — isi jumlah jam kalau ada.'],
+      ruleTxt: rule.partner.trim() + ' · ' + (pax === 'employee' ? 'Employee' : 'Customer') + ': ' + rule[pax].label };
+  }
+
   const idx = $('fArea').value;
-  if (idx === '' || !S.master) return null;
+  if (idx === '') return null;
   const p = S.master.prices[idx];
   const car = $('fCar').value.toUpperCase();
   const lux = /ALPHARD|LUX/.test(car);
-  let base = lux ? p.alphard : p.byd;
+  let base = lux ? p.alphard : p.byd;          // rate murah = BYD, rate mahal = Alphard
   const notes = [];
-  if (!/BYD|ALPHARD|LUX/.test(car) && car) notes.push('Mobil ' + car + ' tidak ada di price list — harga BYD dipakai, cek manual.');
+  if (car && !/BYD|SEALION|ALPHARD|LUX/.test(car)) notes.push('Mobil ' + car + ' tidak ada di price list — rate BYD dipakai, cek manual.');
   const trip = $('fTrip').value;
   const rentTrip = /RENT/.test(trip);
   if (/ROUND/.test(trip) && !/hour/i.test(p.area)) { base = base * 2; notes.push('Round trip = 2 × harga single.'); }
   if (rentTrip && !/hour/i.test(p.area)) notes.push('Trip RENT tapi area bukan paket jam — pilih area "x Hour Rent".');
 
-  const pax = $('fPax').value.toLowerCase();
-  const company = $('fCompany').value;
-  const rule = findRule(company);
   let final = base, ruleTxt = 'Harga normal (tidak ada aturan khusus untuk company ini).';
-  if (rule) {
+  if (NORMAL_PRICE.indexOf(company) >= 0) {
+    ruleTxt = company + ': Normal Price (customer & employee).';
+  } else if (rule) {
     const r = rule[pax];
     ruleTxt = rule.partner.trim() + ' · ' + (pax === 'employee' ? 'Employee' : 'Customer') + ': ' + r.label;
     if (r.mode === 'discount') final = base * (100 - r.pct) / 100;
     if (r.mode === 'flat' && r.amount) final = r.amount;
     if (r.mode === 'sharing') notes.push('Sharing profit — harga normal dicatat.');
   } else if (pax === 'employee') {
-    const ir = S.master.rules.find(x => /INTERNAL|INRTERNAL/.test(normCo(x.partner)));
+    const ir = internalRule();
     if (ir && ir.employee.mode === 'discount') { final = base * (100 - ir.employee.pct) / 100; ruleTxt = 'Employee: ' + ir.employee.label; }
   }
   final = Math.round(final / 500) * 500;
-  return { base: base, final: final, ruleTxt: ruleTxt, notes: notes, area: p.area };
+  return { base: base, final: final, ruleTxt: ruleTxt, notes: notes, area: p.area, rate: lux ? 'Rate Alphard' : 'Rate BYD' };
 }
 
 function applyPrice(force) {
   const r = calcPrice();
   if (!r) { $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.'; return; }
+  if (r.rate === 'Agreement') { if (force || !S.chargesTouched) $('fCharges').value = 0; $('fPriceInfo').innerHTML = '<b>' + esc(r.area) + '</b> · ' + esc(r.ruleTxt); return; }
   if (force || !S.chargesTouched) { $('fCharges').value = r.final; if (force) S.chargesTouched = false; }
-  $('fPriceInfo').innerHTML = '<b>' + esc(r.area) + '</b> · harga dasar ' + rp(r.base) + ' → <b>' + rp(r.final) + '</b><br>' + esc(r.ruleTxt) +
+  $('fPriceInfo').innerHTML = '<b>' + esc(r.area) + '</b> · ' + r.rate + ' ' + rp(r.base) + ' → <b>' + rp(r.final) + '</b><br>' + esc(r.ruleTxt) +
     (r.notes.length ? '<br>' + r.notes.map(esc).join('<br>') : '') +
     (S.chargesTouched && Number($('fCharges').value) !== r.final ? '<br><i>Charges diubah manual — klik "Hitung ulang" untuk pakai harga otomatis.</i>' : '');
 }
 
 function autoPayment() {
-  if ($('fPayment').value) return;
-  const c = normCo($('fCompany').value);
-  const map = { OSHOM: 'PT. OSHOM BALI GROUP', HANDARA: 'PT BRR (HANDARA)', NRE: 'NRE (SERVICE REQ)', LUNA: 'LUNA BEACH CLUB', NSF: 'YDSN (Yayasan Dana Sosial Nuanu)', 'DIRECT ORDER': 'TRANSFER' };
-  if (map[c]) $('fPayment').value = map[c];
-  else if (c) $('fPayment').value = 'PT WFV (SERVICE REQ)';
+  const cur = $('fPayment').value;
+  if (cur && !S.payAuto) return;                      // payment sudah dipilih manual
+  const p = PAY_BY_COMPANY[$('fCompany').value] || '';
+  $('fPayment').value = p;
+  S.payAuto = !!p;
 }
+$('fPayment').addEventListener('change', () => { S.payAuto = false; });
 
 async function checkClash() {
   const drv = $('fDriver').value.trim().toUpperCase(), day = $('fDate').value, tm = $('fTime').value;
@@ -571,40 +620,6 @@ async function deleteBooking() {
   if (!id || !confirm('Hapus booking ini dari sheet? (Untuk pembatalan biasa pakai Cancel)')) return;
   try { await api('remove', { id: id }); toast('Booking dihapus'); S.range = null; resetForm(); showTab('list'); }
   catch (e) { toast(e.message, true); }
-}
-
-/* ---------- recap ---------- */
-['rMonth', 'rCompany', 'rStatus'].forEach(id => $(id).addEventListener('change', () => renderRecap(id !== 'rMonth')));
-['sPrep', 'sPrepT', 'sAppr', 'sApprT', 'sAck', 'sAckT'].forEach(id => $(id).addEventListener('input', syncSign));
-function syncSign() { ['Prep', 'PrepT', 'Appr', 'ApprT', 'Ack', 'AckT'].forEach(k => $('p' + k).textContent = $('s' + k).value); }
-
-async function renderRecap(keepCompany) {
-  const m = $('rMonth').value || today().slice(0, 7);
-  const [f, t] = monthRange(m);
-  $('rBody').innerHTML = '<tr><td colspan="10" class="muted">Memuat…</td></tr>';
-  await ensureRange(f, t);
-  const all = rowsIn(f, t).filter(r => r.depart !== 'CANCELLED');
-  const groups = {};
-  all.forEach(r => { const k = r.company || '(kosong)'; groups[k] = (groups[k] || 0) + 1; });
-  const pays = {};
-  all.forEach(r => { if (r.payment) pays[r.payment] = (pays[r.payment] || 0) + 1; });
-  const cur = $('rCompany').value;
-  $('rCompany').innerHTML = '<optgroup label="Company">' + Object.keys(groups).sort().map(k => '<option value="C|' + esc(k) + '">' + esc(k) + ' (' + groups[k] + ')</option>').join('') + '</optgroup>' +
-    '<optgroup label="Payment / Ditagihkan ke">' + Object.keys(pays).sort().map(k => '<option value="P|' + esc(k) + '">' + esc(k) + ' (' + pays[k] + ')</option>').join('') + '</optgroup>';
-  if (keepCompany && cur && [...$('rCompany').options].some(o => o.value === cur)) $('rCompany').value = cur;
-  const sel = $('rCompany').value || '';
-  const [type, key] = [sel.slice(0, 1), sel.slice(2)];
-  let rows = all.filter(r => type === 'P' ? r.payment === key : (r.company || '(kosong)') === key);
-  if ($('rStatus').value === 'DONE') rows = rows.filter(r => r.depart === 'DONE');
-  rows.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-  const mName = new Date(f + 'T00:00:00').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-  $('rTitle').textContent = 'NUANU GUEST MOBILITY — ' + key + ' — ' + mName;
-  $('rBody').innerHTML = rows.length ? rows.map(r => '<tr><td>' + fmtDate(r.date) + '</td><td>' + esc(r.driver) + '</td><td>' + esc(r.guest) + '</td><td>' + esc(r.company) +
-    '</td><td>' + esc(r.time) + '</td><td>' + esc(r.pickup) + '</td><td>' + esc(r.dropoff) + '</td><td>' + esc(r.trip) + '</td><td class="num">' + rp(r.charges) + '</td><td>' + esc(r.soNo) + '</td></tr>').join('')
-    : '<tr><td colspan="10" class="muted">Tidak ada data.</td></tr>';
-  $('rTotal').textContent = rp(sum(rows));
-  if (!$('sApprT').value || $('sApprT').dataset.auto === '1') { $('sApprT').value = key; $('sApprT').dataset.auto = '1'; }
-  syncSign();
 }
 
 /* ---------- dashboard ---------- */
