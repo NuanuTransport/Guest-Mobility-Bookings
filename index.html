@@ -138,10 +138,10 @@
           <div><label>Drop Off *</label><input id="fDropoff"></div>
           <div><label>Trip</label>
             <select id="fTrip">
-              <option>SINGEL</option><option>ROUND</option>
+              <option value="SINGEL">SINGLE (1× harga)</option><option value="ROUND">ROUND / pulang pergi (2× harga)</option>
               <option>RENT 4 HOURS</option><option>RENT 6 HOURS</option><option>RENT 8 HOURS</option><option>RENT 12 HOURS</option>
             </select></div>
-          <div><label>Car Type</label><input id="fCar" list="dlCar" value="BYD"></div>
+          <div><label>Car Type</label><select id="fCar"><option value="BYD">BYD</option><option value="ALPHARD">ALPHARD</option></select></div>
         </div>
       </div>
 
@@ -202,12 +202,11 @@
 </div>
 
 <datalist id="dlDriver"></datalist>
-<datalist id="dlCar"></datalist>
 <div id="toast"></div>
 
 <script>
 /* ====== GANTI DENGAN URL WEB APP APPS SCRIPT ====== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxmxnet_lGKswbLuhjnVO-kiOvx214cXZNuNgd0pr7xm6kfYtX4p1FV9usyqifVGwU/exec';
+const API_URL = 'PASTE_URL_WEB_APP_DI_SINI';
 /* ================================================== */
 
 /* ---------- DAFTAR COMPANY & PAYMENT (edit di sini) ---------- */
@@ -331,10 +330,20 @@ async function loadMaster() {
   const L = S.master.lists;
   const fill = (id, arr) => $(id).innerHTML = arr.map(v => '<option value="' + esc(v) + '">').join('');
   fill('dlDriver', L.drivers);
-  fill('dlCar', Array.from(new Set(['BYD', 'ALPHARD'].concat(L.cars))));
-  $('fArea').innerHTML = '<option value="">— pilih area —</option>' +
-    S.master.prices.map((p, i) => '<option value="' + i + '">' + esc(p.area) + ' · BYD ' + rp(p.byd) + ' / Alphard ' + rp(p.alphard) + '</option>').join('');
+  buildAreas();
 }
+
+/* Daftar area menampilkan harga sesuai Car Type yang dipilih */
+function buildAreas() {
+  if (!S.master) return;
+  const keep = $('fArea').value;
+  const alph = isAlphard();
+  $('fArea').innerHTML = '<option value="">— pilih area —</option>' +
+    S.master.prices.map((p, i) => '<option value="' + i + '">' + esc(p.area) + ' · ' + (alph ? 'Alphard ' + rp(p.alphard) : 'BYD ' + rp(p.byd)) + '</option>').join('');
+  $('fArea').value = keep;
+}
+function isAlphard() { return /ALPHARD|LUX/.test($('fCar').value.toUpperCase()); }
+$('fCar').addEventListener('change', buildAreas);
 
 /* ---------- data range cache ---------- */
 async function ensureRange(from, to) {
@@ -431,6 +440,7 @@ function resetForm() {
   $('fDelete').classList.add('hidden'); $('fClash').classList.add('hidden');
   $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.';
   S.chargesTouched = false; S.paxTouched = false; S.payAuto = false;
+  buildAreas();
 }
 
 function fillForm(r, asCopy) {
@@ -443,6 +453,7 @@ function fillForm(r, asCopy) {
   S.chargesTouched = true;
   if (r.paxType === 'EMPLOYEE' || r.paxType === 'CUSTOMER') { $('fPax').value = r.paxType; S.paxTouched = true; $('fPaxHint').textContent = ''; }
   else { $('fPax').value = 'CUSTOMER'; guessPax(); }
+  buildAreas();
   guessArea();
   checkClash();
 }
@@ -532,13 +543,15 @@ function calcPrice() {
   if (idx === '') return null;
   const p = S.master.prices[idx];
   const car = $('fCar').value.toUpperCase();
-  const lux = /ALPHARD|LUX/.test(car);
-  let base = lux ? p.alphard : p.byd;          // rate murah = BYD, rate mahal = Alphard
+  const lux = isAlphard();
+  const single = lux ? p.alphard : p.byd;      // BYD → harga BYD, ALPHARD → harga Alphard
+  let base = single;
   const notes = [];
-  if (car && !/BYD|SEALION|ALPHARD|LUX/.test(car)) notes.push('Mobil ' + car + ' tidak ada di price list — rate BYD dipakai, cek manual.');
+  if (car && !/BYD|SEALION|ALPHARD|LUX/.test(car)) notes.push('Mobil ' + car + ' tidak ada di price list — harga BYD dipakai. Ganti Car Type ke BYD atau ALPHARD.');
   const trip = $('fTrip').value;
   const rentTrip = /RENT/.test(trip);
-  if (/ROUND/.test(trip) && !/hour/i.test(p.area)) { base = base * 2; notes.push('Round trip = 2 × harga single.'); }
+  if (/ROUND/.test(trip) && !/hour/i.test(p.area)) { base = single * 2; notes.push('Round / pulang pergi: 2 × ' + rp(single) + '.'); }
+  else if (!rentTrip) notes.push('Single: 1 × ' + rp(single) + '.');
   if (rentTrip && !/hour/i.test(p.area)) notes.push('Trip RENT tapi area bukan paket jam — pilih area "x Hour Rent".');
 
   let final = base, ruleTxt = 'Harga normal (tidak ada aturan khusus untuk company ini).';
