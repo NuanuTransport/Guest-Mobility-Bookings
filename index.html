@@ -78,6 +78,9 @@
   .absen{text-align:center}
   .absen .big{font-size:28px;font-weight:700;margin:6px 0 2px}
   .absen .btn{width:100%;padding:14px;font-size:16px;margin-top:12px}
+  .tpl{background:#f6f8f5;border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;margin:10px 0}
+  .standby{background:var(--blue-soft);color:var(--blue);border-radius:12px;padding:16px;text-align:center;font-weight:600;line-height:1.5}
+  .standby b{display:block;font-size:17px;margin-top:4px}
   .inwrap{display:flex;gap:6px}
   .inwrap input{flex:1;min-width:0}
   .inwrap .btn{padding:9px 10px;white-space:nowrap}
@@ -188,6 +191,7 @@
           <div><label>Booking Date *</label><input type="date" id="fDate"></div>
           <div><label>Pick Up Time *</label><input type="time" id="fTime"></div>
           <div><label>Req By - Guest Name *</label><input id="fGuest" placeholder="SUKMA - MR JOHN"></div>
+          <div><label>WA Guest / Pemesan</label><input id="fWa" type="tel" inputmode="tel" placeholder="+62 812-xxxx-xxxx"></div>
           <div><label>Company *</label><select id="fCompany"></select></div>
           <div><label>Details Flight</label><input id="fFlight" placeholder="QR960"></div>
           <div><label>Pick Up *</label><div class="inwrap"><input id="fPickup" list="dlDest" placeholder="Ketik, pilih list, atau paste link Maps"><button type="button" class="btn ghost" onclick="openPicker('pickup')">Peta</button></div><div class="areatag" id="tagPickup"></div></div>
@@ -239,6 +243,19 @@
           <button class="btn ghost" onclick="resetForm()">Kosongkan</button>
           <span class="sp" style="flex:1"></span>
           <button class="btn red hidden" id="fDelete" onclick="deleteBooking()">Hapus</button>
+        </div>
+      </div>
+
+      <div class="card hidden" id="tplCard">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <p class="sec-title" style="margin:0">Detail booking untuk grup WhatsApp</p>
+          <label class="small" style="display:flex;gap:6px;align-items:center;margin:0;font-weight:600"><input type="checkbox" id="tplPrice" style="width:auto"> Sertakan harga</label>
+        </div>
+        <div class="tpl" id="tplText"></div>
+        <div class="row">
+          <button class="btn" onclick="copyTpl()">Salin teks</button>
+          <button class="btn ghost" onclick="shareTpl()">Buka WhatsApp</button>
+          <button class="btn ghost" onclick="$('tplCard').classList.add('hidden')">Tutup</button>
         </div>
       </div>
     </section>
@@ -311,12 +328,17 @@
   </header>
   <nav>
     <button data-dtab="home" class="on">Hari ini</button>
+    <button data-dtab="tmr">Job Besok</button>
     <button data-dtab="hist">Riwayat</button>
   </nav>
   <div class="dwrap">
     <section id="dtab-home">
       <div class="card absen" id="dAbsen"><span class="muted">Memuat…</span></div>
       <div id="dTrips"></div>
+    </section>
+    <section id="dtab-tmr" class="hidden">
+      <p class="daylbl" id="tmrLbl">Job for tomorrow</p>
+      <div id="tmrList"><div class="card muted">Memuat…</div></div>
     </section>
     <section id="dtab-hist" class="hidden">
       <div class="card"><label>Bulan</label><input type="month" id="hMonth"></div>
@@ -616,6 +638,7 @@ async function renderList(noFetch) {
         (s !== 'PENDING' ? '<button class="btn sm amber" onclick="setStatus(\'' + r.id + '\',\'PENDING\')">Pending</button>' : '') +
         '<button class="btn sm ghost" onclick="editBooking(\'' + r.id + '\')">Edit</button>' +
         '<button class="btn sm ghost" onclick="copyBooking(\'' + r.id + '\')">Duplikat</button>' +
+        '<button class="btn sm ghost" onclick="tplFromList(\'' + r.id + '\')">WA</button>' +
       '</div></td></tr>';
   }).join('') : '<tr><td colspan="8" class="muted">Tidak ada booking.</td></tr>';
 }
@@ -642,7 +665,7 @@ async function setStatus(id, status) {
 const FORM = { date: 'fDate', time: 'fTime', guest: 'fGuest', company: 'fCompany', flight: 'fFlight', pickup: 'fPickup',
   dropoff: 'fDropoff', trip: 'fTrip', car: 'fCar', driver: 'fDriver', driverType: 'fDriverType', depart: 'fDepart',
   payment: 'fPayment', payStatus: 'fPayStatus', charges: 'fCharges', purpose: 'fPurpose', invStatus: 'fInvStatus',
-  invNo: 'fInvNo', soNo: 'fSoNo', paxType: 'fPax' };
+  invNo: 'fInvNo', soNo: 'fSoNo', paxType: 'fPax', wa: 'fWa' };
 
 function resetForm() {
   Object.values(FORM).forEach(id => { const el = $(id); el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
@@ -659,6 +682,7 @@ function resetForm() {
 
 function fillForm(r, asCopy) {
   resetForm();
+  $('tplCard').classList.add('hidden');
   Object.keys(FORM).forEach(k => { const el = $(FORM[k]); el.value = r[k] == null ? '' : r[k]; if (el.tagName === 'SELECT' && el.value !== String(r[k] || '') && r[k]) { const o = document.createElement('option'); o.textContent = r[k]; el.appendChild(o); el.value = r[k]; } });
   if (r.driver === 'CANCELLED') $('fDriver').value = '';
   if (asCopy) { $('fDepart').value = 'PENDING'; $('fPayStatus').value = ''; $('fInvStatus').value = ''; $('fInvNo').value = ''; $('fDriver').value = ''; }
@@ -921,10 +945,11 @@ async function saveBooking() {
     if (i >= 0) S.rows[i] = Object.assign(S.rows[i], obj); else S.rows.push(obj);
     if (S.range && (obj.date < S.range[0] || obj.date > S.range[1])) S.range = null;
     toast(b.id ? 'Perubahan disimpan' : 'Booking tersimpan');
+    // template detail booking untuk dikirim manual ke grup WhatsApp
+    S.tpl = Object.assign({}, obj, { mapPick: S.loc && S.loc.pickup, mapDrop: S.loc && S.loc.dropoff });
     $('lDate').value = b.date;
     resetForm();
-    showTab('list', true);
-    if (S.range) renderList(true); else await renderList();
+    showTpl();
     syncSilent();                                   // sinkron ulang dengan sheet di belakang layar
   } catch (e) { toast(e.message, true); }
   btn.disabled = false; btn.textContent = label;
@@ -943,6 +968,58 @@ async function syncSilent() {
     if (t === 'dash') renderDash();
   } catch (e) { /* diam saja, coba lagi di sinkron berikutnya */ }
   S.syncing = false;
+}
+
+function tplText(b, withPrice) {
+  // format grup WA: tanggal, Req by, Guest Name, WA, Time, Pick Up, Destination, Payment, Driver
+  const parts = String(b.guest || '').split(/\s+-\s+/).map(x => x.trim()).filter(Boolean);
+  const reqBy = parts[0] || '-', guest = parts.length > 1 ? parts.slice(1).join(' - ') : reqBy;
+  const day = b.date ? new Date(b.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const t12 = t => { const m = String(t || '').match(/^(\d{1,2}):(\d{2})/); if (!m) return t || '-'; let h = +m[1]; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return String(h).padStart(2, '0') + ':' + m[2] + ' ' + ap; };
+  // lokasi: link Maps yang di-paste → link itu; dipilih di peta → link Google Maps titiknya; selain itu teks
+  const tc = s => String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  const place = (txt, L) => L ? (L.link || 'https://maps.google.com/?q=' + L.lat.toFixed(6) + ',' + L.lng.toFixed(6)) : (/^https?:/i.test(txt) ? txt : tc(txt) || '-');
+  const waName = b.driver && S.master && S.master.lists.driverWa && S.master.lists.driverWa[b.driver];
+  const lines = [
+    day,
+    'Req by: ' + tc(reqBy),
+    'Guest Name: ' + tc(guest),
+    'WA: ' + (b.wa || '-'),
+    'Time: ' + t12(b.time),
+    b.flight ? 'Flight: ' + b.flight : '',
+    'Pick Up: ' + place(b.pickup, b.mapPick),
+    'Destination : ' + place(b.dropoff, b.mapDrop),
+    b.trip && b.trip !== 'SINGEL' ? 'Trip: ' + ({ ROUND: 'Round trip (PP)' }[b.trip] || b.trip) : '',
+    /ALPHARD/i.test(b.car || '') ? 'Car: Alphard' : '',
+    'Payment: ' + (b.payment || '-'),
+    withPrice && b.charges ? 'Charges: ' + rp(b.charges) : '',
+    'Driver : ' + (b.driver ? '@' + (waName || tc(b.driver)) : '-'),
+    b.purpose ? 'Note: ' + b.purpose : ''
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+function showTpl() {
+  if (!S.tpl) return;
+  $('tplText').textContent = tplText(S.tpl, $('tplPrice').checked);
+  $('tplCard').classList.remove('hidden');
+  $('tplCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+$('tplPrice').addEventListener('change', showTpl);
+async function copyTpl() {
+  const t = $('tplText').textContent;
+  try { await navigator.clipboard.writeText(t); toast('Teks disalin — paste di grup WhatsApp'); }
+  catch (e) {
+    const r = document.createRange(); r.selectNodeContents($('tplText'));
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    try { document.execCommand('copy'); toast('Teks disalin'); } catch (x) { toast('Tekan lama teks lalu pilih Salin', true); }
+  }
+}
+function shareTpl() { window.open('https://wa.me/?text=' + encodeURIComponent($('tplText').textContent), '_blank'); }
+/* template dari daftar booking (tombol WA) */
+function tplFromList(id) {
+  const r = S.rows.find(x => x.id === id); if (!r) return;
+  S.tpl = Object.assign({}, r);
+  showTab('form', true); resetForm(); showTpl();
 }
 
 async function deleteBooking() {
@@ -1026,7 +1103,7 @@ async function resolveLink(k, url) {
     const r = await api('mapslink', { url: url });
     if (field.value.trim() !== url) return;                   // sudah diganti user
     const a = areaForPoint(r.lat, r.lng, r.names);
-    S.loc[k] = { lat: r.lat, lng: r.lng, address: r.address, names: r.names, idx: a.idx, how: a.how };
+    S.loc[k] = { lat: r.lat, lng: r.lng, address: r.address, names: r.names, idx: a.idx, how: a.how, link: url };
     field.value = r.label ? r.label.toUpperCase() : shortName(r.address);
     setTag(k);
     S.areaManual = false; autoArea();
@@ -1262,13 +1339,13 @@ async function otReject(id) {
 document.querySelectorAll('nav button[data-dtab]').forEach(b => b.onclick = () => showDTab(b.dataset.dtab));
 function showDTab(t) {
   document.querySelectorAll('nav button[data-dtab]').forEach(b => b.classList.toggle('on', b.dataset.dtab === t));
-  $('dtab-home').classList.toggle('hidden', t !== 'home'); $('dtab-hist').classList.toggle('hidden', t !== 'hist');
+  ['home', 'tmr', 'hist'].forEach(x => $('dtab-' + x).classList.toggle('hidden', x !== t));
   if (t === 'hist') renderHist(); else driverRefresh();
 }
 async function driverBoot() { $('hMonth').value = today().slice(0, 7); await driverRefresh(true); }
 async function driverRefresh(showErr) {
   if ($('dtab-hist') && !$('dtab-hist').classList.contains('hidden')) return renderHist(true);
-  try { S.dh = await api('dhome'); renderDHome(); }
+  try { S.dh = await api('dhome'); renderDHome(); renderTmr(); }
   catch (e) { if (showErr) toast(e.message, true); }
 }
 const dayLabel = d => { const t = today(); const diff = Math.round((new Date(d + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000);
@@ -1290,23 +1367,41 @@ function renderDHome() {
   }
   $('dAbsen').innerHTML = html;
 
-  const trips = h.bookings.filter(b => b.depart !== 'CANCELLED' || b.date >= h.today);
-  if (!trips.length) { $('dTrips').innerHTML = '<p class="daylbl">Booking saya</p><div class="card muted">Belum ada booking untuk Anda.</div>'; return; }
+  const tmr = addDay(h.today, 1);
+  const nTmr = h.bookings.filter(b => b.date === tmr && b.depart !== 'CANCELLED').length;
+  const tmrBar = '<div class="card" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="showDTab(\'tmr\')"><span><b>Job besok</b> <span class="muted">· ' + fmtDate(tmr) + '</span></span><span class="chip ' + (nTmr ? 'PENDING' : 'NOOT') + '">' + (nTmr ? nTmr + ' job' : 'Standby P1') + '</span></div>';
+  const trips = h.bookings.filter(b => b.date <= h.today && (b.depart !== 'CANCELLED' || b.date === h.today));
+  if (!trips.length) { $('dTrips').innerHTML = '<p class="daylbl">Hari ini</p><div class="card muted">Belum ada booking untuk Anda hari ini.</div>' + tmrBar; return; }
   let last = '', out = '';
   trips.forEach(b => {
     if (b.date !== last) { out += '<p class="daylbl">' + dayLabel(b.date) + '</p>'; last = b.date; }
     out += tripCard(b, true);
   });
-  $('dTrips').innerHTML = out;
+  $('dTrips').innerHTML = out + tmrBar;
+}
+
+function addDay(ymd, n) { const d = new Date(ymd + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+const STANDBY_NOTE = 'Nuanu Guest Parking / P1';
+function renderTmr() {
+  const h = S.dh; if (!h) return;
+  const tmr = addDay(h.today, 1);
+  $('tmrLbl').textContent = 'Job for tomorrow · ' + new Date(tmr + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+  const list = h.bookings.filter(b => b.date === tmr);
+  const active = list.filter(b => b.depart !== 'CANCELLED');
+  $('tmrList').innerHTML = (active.length
+    ? '<div class="card small muted" style="margin-bottom:10px">' + active.length + ' job besok · mulai jam <b style="color:var(--ink)">' + esc(active[0].time || '--:--') + '</b></div>'
+    : '<div class="standby">Belum ada booking untuk Anda besok.<b>Standby di ' + STANDBY_NOTE + '</b></div>') +
+    list.map(b => tripCard(b, false)).join('');
 }
 
 function tripCard(b, action) {
   const canc = b.depart === 'CANCELLED';
   return '<div class="trip"' + (canc ? ' style="opacity:.55"' : '') + '><div class="row" style="justify-content:space-between;align-items:center">' +
     '<span class="t">' + esc(b.time || '--:--') + '</span>' +
-    (canc ? '<span class="chip CANCELLED">CANCELLED</span>' : b.finishedAt ? '<span class="chip FIN">SELESAI ' + esc(b.finishedAt.slice(11)) + '</span>' : '<span class="chip PENDING">BELUM SELESAI</span>') + '</div>' +
+    (canc ? '<span class="chip CANCELLED">CANCELLED</span>' : b.finishedAt ? '<span class="chip FIN">SELESAI ' + esc(b.finishedAt.slice(11)) + '</span>' : (S.dh && b.date > S.dh.today) ? '<span class="chip BERJALAN">TERJADWAL</span>' : '<span class="chip PENDING">BELUM SELESAI</span>') + '</div>' +
     '<div class="r">' + esc(b.pickup) + ' → ' + esc(b.dropoff) + '</div>' +
     '<div class="small">' + esc(b.guest) + (b.company ? ' · <span class="muted">' + esc(b.company) + '</span>' : '') + '</div>' +
+    (b.wa ? '<div class="small">WA: <a href="https://wa.me/' + esc(String(b.wa).replace(/\D/g, '').replace(/^0/, '62')) + '" target="_blank" rel="noopener">' + esc(b.wa) + '</a></div>' : '') +
     '<div class="small muted">' + [b.trip, b.car, b.flight ? 'Flight ' + b.flight : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
     (action && !canc && !b.finishedAt ? '<button class="btn" onclick="finishTrip(\'' + b.id + '\', this)">Selesai trip</button>' : '') + '</div>';
 }
