@@ -369,10 +369,10 @@ function rowsIn(from, to) { return S.rows.filter(r => r.date >= from && r.date <
 
 /* ---------- tabs ---------- */
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
-function showTab(t) {
+function showTab(t, noRender) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   ['list', 'form', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
-  currentTabRender();
+  if (!noRender) currentTabRender();
 }
 function currentTab() { const b = document.querySelector('nav button.on'); return b ? b.dataset.tab : 'list'; }
 async function currentTabRender() {
@@ -391,7 +391,8 @@ $('lSearch').addEventListener('input', () => renderList(true));
 
 async function renderList(noFetch) {
   const day = $('lDate').value || today();
-  $('lBody').innerHTML = '<tr><td colspan="8" class="muted">Memuat…</td></tr>';
+  const cached = S.range && S.range[0] <= day && S.range[1] >= day;
+  if (!noFetch && !cached) $('lBody').innerHTML = '<tr><td colspan="8" class="muted">Memuat…</td></tr>';
   try { if (!noFetch) await ensureRange(day, day); } catch (e) { toast(e.message, true); }
   const st = $('lStatus').value, q = $('lSearch').value.trim().toUpperCase();
   let rows = rowsIn(day, day);
@@ -429,12 +430,18 @@ function sum(rows) { return rows.reduce((a, r) => a + (Number(r.charges) || 0), 
 
 async function setStatus(id, status) {
   if (status === 'CANCELLED' && !confirm('Cancel booking ini?')) return;
+  // langsung berubah di layar, lalu disimpan ke sheet
+  const r = S.rows.find(x => x.id === id);
+  const prev = r ? { depart: r.depart, driver: r.driver } : null;
+  if (r) { r.depart = status; if (status === 'CANCELLED') r.driver = 'CANCELLED'; }
+  renderList(true);
   try {
     await api('status', { id: id, status: status });
-    const r = S.rows.find(x => x.id === id);
-    if (r) { r.depart = status; if (status === 'CANCELLED') r.driver = 'CANCELLED'; }
-    toast('Status: ' + status); renderList(true);
-  } catch (e) { toast(e.message, true); }
+    toast('Status: ' + status);
+  } catch (e) {
+    if (r && prev) { r.depart = prev.depart; r.driver = prev.driver; renderList(true); }
+    toast(e.message, true);
+  }
 }
 
 /* ---------- form ---------- */
@@ -688,22 +695,54 @@ async function saveBooking() {
   const b = readForm();
   const miss = [['date', 'Tanggal'], ['time', 'Jam'], ['guest', 'Guest'], ['company', 'Company'], ['pickup', 'Pick up'], ['dropoff', 'Drop off']].filter(x => !b[x[0]]).map(x => x[1]);
   if (miss.length) { toast('Wajib diisi: ' + miss.join(', '), true); return; }
-  const btn = $('fSave'); btn.disabled = true;
+  const btn = $('fSave'); const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
   try {
-    if (b.id) await api('update', { booking: b }); else await api('create', { booking: b });
+    const res = await api(b.id ? 'update' : 'create', { booking: b });
+    // langsung tampilkan perubahan di daftar tanpa menunggu refresh
+    const obj = Object.assign({}, b, {
+      id: (res && res.id) || b.id,
+      charges: Number(b.charges) || 0,
+      depart: b.depart || 'PENDING',
+      paxType: b.paxType === 'EMPLOYEE' ? 'EMPLOYEE' : 'CUSTOMER'
+    });
+    ['guest', 'company', 'flight', 'pickup', 'dropoff', 'trip', 'car', 'driver', 'driverType', 'payStatus', 'invStatus'].forEach(k => obj[k] = String(obj[k] || '').toUpperCase());
+    const i = S.rows.findIndex(x => x.id === obj.id);
+    if (i >= 0) S.rows[i] = Object.assign(S.rows[i], obj); else S.rows.push(obj);
+    if (S.range && (obj.date < S.range[0] || obj.date > S.range[1])) S.range = null;
     toast(b.id ? 'Perubahan disimpan' : 'Booking tersimpan');
-    S.range = null;
     $('lDate').value = b.date;
     resetForm();
-    showTab('list');
+    showTab('list', true);
+    if (S.range) renderList(true); else await renderList();
+    syncSilent();                                   // sinkron ulang dengan sheet di belakang layar
   } catch (e) { toast(e.message, true); }
-  btn.disabled = false;
+  btn.disabled = false; btn.textContent = label;
+}
+
+// Ambil ulang data dari sheet tanpa tampilan "Memuat…" lalu perbarui daftar yang sedang dibuka
+async function syncSilent() {
+  if (!S.pin || S.syncing) return;
+  const range = S.range || [$('lDate').value || today(), $('lDate').value || today()];
+  S.syncing = true;
+  try {
+    const d = await api('list', { from: range[0], to: range[1] });
+    S.rows = d.rows; S.range = range;
+    const t = currentTab();
+    if (t === 'list') renderList(true);
+    if (t === 'dash') renderDash();
+  } catch (e) { /* diam saja, coba lagi di sinkron berikutnya */ }
+  S.syncing = false;
 }
 
 async function deleteBooking() {
   const id = $('fId').value;
   if (!id || !confirm('Hapus booking ini dari sheet? (Untuk pembatalan biasa pakai Cancel)')) return;
-  try { await api('remove', { id: id }); toast('Booking dihapus'); S.range = null; resetForm(); showTab('list'); }
+  try {
+    await api('remove', { id: id });
+    S.rows = S.rows.filter(x => x.id !== id);
+    toast('Booking dihapus'); resetForm(); showTab('list', true); renderList(true); syncSilent();
+  }
   catch (e) { toast(e.message, true); }
 }
 
@@ -729,11 +768,12 @@ async function renderDash() {
   $('dDriver').innerHTML = drv.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td style="width:50%"><div class="bar"><i style="width:' + (v / maxD * 100) + '%"></i></div></td><td class="num">' + v + ' trip</td></tr>').join('') || '<tr><td class="muted">Belum ada data.</td></tr>';
 }
 
-/* ---------- auto refresh (status Auto DONE dari server) ---------- */
+/* ---------- auto sinkron: perubahan dari sheet / admin lain / Auto DONE muncul sendiri ---------- */
 setInterval(() => {
-  if ($('appView').classList.contains('hidden') || currentTab() !== 'list' || document.hidden) return;
-  S.range = null; renderList();
-}, 5 * 60 * 1000);
+  if ($('appView').classList.contains('hidden') || currentTab() === 'form' || document.hidden) return;
+  syncSilent();
+}, 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('appView').classList.contains('hidden') && currentTab() !== 'form') syncSilent(); });
 
 /* ---------- auto login ---------- */
 try { const p = sessionStorage.getItem('taxiPin'); if (p) { $('pinInput').value = p; login(); } } catch (e) {}
