@@ -63,6 +63,27 @@
   .login{max-width:360px;margin:12vh auto}
   .acts{display:flex;gap:4px;flex-wrap:wrap}
   .sec-title{font-size:13px;font-weight:700;margin:0 0 10px}
+  .seg{display:flex;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:16px}
+  .seg button{flex:1;border:0;background:transparent;padding:9px;border-radius:8px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
+  .seg button.on{background:#fff;color:var(--brand);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .chip.BERJALAN{background:var(--blue-soft);color:var(--blue)}
+  .chip.APPROVED{background:var(--brand-soft);color:var(--brand)}
+  .chip.REJECTED{background:var(--red-soft);color:var(--red)}
+  .chip.NOOT{background:#eef0ed;color:var(--muted)}
+  .chip.FIN{background:var(--brand-soft);color:var(--brand)}
+  /* driver */
+  .dwrap{max-width:560px;margin:0 auto;padding:14px}
+  .absen{text-align:center}
+  .absen .big{font-size:28px;font-weight:700;margin:6px 0 2px}
+  .absen .btn{width:100%;padding:14px;font-size:16px;margin-top:12px}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;text-align:left}
+  .kv div{background:var(--bg);border-radius:8px;padding:8px 10px}
+  .kv b{display:block;font-size:15px}
+  .trip{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:#fff}
+  .trip .t{font-size:20px;font-weight:700}
+  .trip .r{margin:6px 0;font-weight:600}
+  .trip .btn{width:100%;margin-top:10px;padding:12px}
+  .daylbl{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:14px 2px 8px}
   @media print{
     header,nav,.noprint,#toast{display:none!important}
     body{background:#fff}
@@ -79,8 +100,13 @@
 <!-- LOGIN -->
 <div id="loginView" class="login card">
   <h2 style="margin:0 0 4px">Nuanu Taxi Booking</h2>
-  <p class="muted small" style="margin:0 0 16px">Admin Guest Mobility</p>
-  <label>PIN Admin</label>
+  <p class="muted small" style="margin:0 0 16px">Guest Mobility</p>
+  <div class="seg"><button id="segAdmin" class="on" onclick="setLoginRole('admin')">Admin</button><button id="segDriver" onclick="setLoginRole('driver')">Driver</button></div>
+  <div id="driverPick" class="hidden" style="margin-bottom:10px">
+    <label>Nama driver</label>
+    <select id="driverSel"><option value="">Memuat…</option></select>
+  </div>
+  <label id="pinLbl">PIN Admin</label>
   <input id="pinInput" type="password" inputmode="numeric" placeholder="Masukkan PIN">
   <button class="btn" style="width:100%;margin-top:12px" onclick="login()">Masuk</button>
   <p id="loginMsg" class="small" style="color:var(--red)"></p>
@@ -97,6 +123,7 @@
   <nav>
     <button data-tab="list" class="on">Booking Harian</button>
     <button data-tab="form">+ Booking Baru</button>
+    <button data-tab="att">Absen & OT</button>
     <button data-tab="dash">Dashboard</button>
   </nav>
   <main>
@@ -187,6 +214,33 @@
       </div>
     </section>
 
+    <!-- ABSEN & OT -->
+    <section id="tab-att" class="hidden">
+      <div class="card noprint">
+        <div class="row">
+          <div style="width:170px"><label>Bulan</label><input type="month" id="aMonth"></div>
+          <div style="width:200px"><label>Driver</label><select id="aDriver"><option value="">Semua driver</option></select></div>
+          <div style="width:170px"><label>Status OT</label>
+            <select id="aStatus"><option value="">Semua</option><option value="PENDING">Perlu approve</option><option>APPROVED</option><option>REJECTED</option><option value="NO OT">Tanpa OT</option><option>BERJALAN</option></select></div>
+        </div>
+        <p class="small muted" style="margin:10px 0 0">OT dihitung dari trip terakhir yang ditandai selesai oleh driver + 1 jam balik, dikurangi jam kerja normal (dari schedule Leave Management, default 8 jam). Telat clock out tanpa trip = 0. OT masuk ke <b>OVERTIME_LOG</b> Leave Management setelah di-approve.</p>
+        <div id="aWarn" class="warn hidden"></div>
+      </div>
+      <div class="stats" id="aStats" style="margin-bottom:14px"></div>
+      <div class="card"><p class="sec-title">Rekap per driver</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Driver</th><th class="num">Hari absen</th><th class="num">Trip selesai</th><th class="num">OT perlu approve</th><th class="num">OT approved</th></tr></thead>
+          <tbody id="aSum"></tbody>
+        </table></div>
+      </div>
+      <div class="card"><p class="sec-title">Detail absen</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Tanggal</th><th>Driver</th><th>Clock in → out</th><th>Normal selesai</th><th>Trip terakhir</th><th class="num">OT hitung</th><th>OT (jam)</th><th>Status</th><th>Catatan</th><th></th></tr></thead>
+          <tbody id="aBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
     <!-- DASHBOARD -->
     <section id="tab-dash" class="hidden">
       <div class="card noprint">
@@ -200,6 +254,34 @@
     </section>
 
   </main>
+</div>
+
+<!-- DRIVER -->
+<div id="driverView" class="hidden">
+  <header>
+    <h1>Nuanu Taxi · <span id="dName"></span></h1>
+    <span class="sp"></span>
+    <button onclick="driverRefresh(true)">Refresh</button>
+    <button onclick="logout()">Keluar</button>
+  </header>
+  <nav>
+    <button data-dtab="home" class="on">Hari ini</button>
+    <button data-dtab="hist">Riwayat</button>
+  </nav>
+  <div class="dwrap">
+    <section id="dtab-home">
+      <div class="card absen" id="dAbsen"><span class="muted">Memuat…</span></div>
+      <div id="dTrips"></div>
+    </section>
+    <section id="dtab-hist" class="hidden">
+      <div class="card"><label>Bulan</label><input type="month" id="hMonth"></div>
+      <div class="stats" id="hStats" style="margin-bottom:14px"></div>
+      <p class="daylbl">Absen & overtime</p>
+      <div id="hAtt"></div>
+      <p class="daylbl">Riwayat booking</p>
+      <div id="hTrips"></div>
+    </section>
+  </div>
 </div>
 
 <datalist id="dlDriver"></datalist>
@@ -273,7 +355,7 @@ const INTERNAL_DEPTS = ['PUBLIC RELATIONS', 'BRAND AND COMM', 'NUANU SOCIAL FUND
   'LEGAL', 'ENVIRONMENTAL', 'OPERATIONAL', 'PARATAMA GARDA MASA'];
 /* ------------------------------------------------------------- */
 
-const S = { pin: '', master: null, rows: [], range: null, lastId: null };
+const S = { pin: '', role: 'admin', driver: '', master: null, rows: [], range: null, lastId: null, loginRole: 'admin' };
 const $ = id => document.getElementById(id);
 (function buildSelects() {
   const o = v => '<option value="' + v.replace(/"/g, '&quot;') + '">' + v + '</option>';
@@ -299,35 +381,66 @@ async function api(action, payload) {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action: action, pin: S.pin }, payload || {}))
+    body: JSON.stringify(Object.assign({ action: action, pin: S.pin }, S.role === 'driver' ? { role: 'driver', driver: S.driver } : {}, payload || {}))
   });
   const j = await res.json();
-  if (j.auth === false) { logout(); throw new Error('PIN salah'); }
+  if (j.auth === false) { logout(); throw new Error(j.error || 'PIN salah'); }
   if (!j.ok) throw new Error(j.error || 'Gagal');
   return j.data;
 }
 
 /* ---------- login ---------- */
+function setLoginRole(r) {
+  S.loginRole = r;
+  $('segAdmin').classList.toggle('on', r === 'admin'); $('segDriver').classList.toggle('on', r === 'driver');
+  $('driverPick').classList.toggle('hidden', r !== 'driver');
+  $('pinLbl').textContent = r === 'driver' ? 'PIN driver' : 'PIN Admin';
+  $('loginMsg').textContent = '';
+  if (r === 'driver' && !S.driverNamesLoaded) loadDriverNames();
+}
+async function loadDriverNames() {
+  try {
+    const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'driverNames' }) });
+    const j = await res.json();
+    const names = (j.ok && j.data) || [];
+    $('driverSel').innerHTML = '<option value="">— pilih nama —</option>' + names.map(n => '<option>' + esc(n) + '</option>').join('');
+    S.driverNamesLoaded = true;
+    if (!names.length) $('loginMsg').textContent = 'Belum ada driver dengan PIN. Admin isi tab DRIVER di sheet.';
+    try { const last = localStorage.getItem('taxiDriverName'); if (last) $('driverSel').value = last; } catch (e) {}
+  } catch (e) { $('loginMsg').textContent = 'Gagal memuat daftar driver'; }
+}
 async function login() {
   S.pin = $('pinInput').value.trim();
+  S.role = S.loginRole;
+  S.driver = S.role === 'driver' ? $('driverSel').value : '';
+  if (S.role === 'driver' && !S.driver) { $('loginMsg').textContent = 'Pilih nama driver dulu'; return; }
   $('loginMsg').textContent = 'Memeriksa…';
   try {
-    await api('ping');
-    try { sessionStorage.setItem('taxiPin', S.pin); } catch (e) {}
-    $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden');
-    await boot();
+    if (S.role === 'driver') {
+      const me = await api('dlogin');
+      try { sessionStorage.setItem('taxiSess', JSON.stringify({ role: 'driver', pin: S.pin, driver: S.driver })); localStorage.setItem('taxiDriverName', S.driver); } catch (e) {}
+      $('loginView').classList.add('hidden'); $('driverView').classList.remove('hidden');
+      $('dName').textContent = me.fullName || me.name;
+      await driverBoot();
+    } else {
+      await api('ping');
+      try { sessionStorage.setItem('taxiSess', JSON.stringify({ role: 'admin', pin: S.pin })); } catch (e) {}
+      $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden');
+      await boot();
+    }
   } catch (e) { $('loginMsg').textContent = e.message; }
 }
 function logout() {
-  try { sessionStorage.removeItem('taxiPin'); } catch (e) {}
-  S.pin = ''; $('appView').classList.add('hidden'); $('loginView').classList.remove('hidden');
-  $('loginMsg').textContent = '';
+  try { sessionStorage.removeItem('taxiSess'); } catch (e) {}
+  S.pin = ''; S.driver = '';
+  $('appView').classList.add('hidden'); $('driverView').classList.add('hidden'); $('loginView').classList.remove('hidden');
+  $('pinInput').value = ''; $('loginMsg').textContent = '';
 }
 $('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 
 async function boot() {
   $('lDate').value = today();
-  $('dMonth').value = today().slice(0, 7);
+  $('dMonth').value = $('aMonth').value = today().slice(0, 7);
   resetForm();
   await loadMaster();
   await renderList();
@@ -368,18 +481,19 @@ async function ensureRange(from, to) {
 function rowsIn(from, to) { return S.rows.filter(r => r.date >= from && r.date <= to); }
 
 /* ---------- tabs ---------- */
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(t, noRender) {
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['list', 'form', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
+  document.querySelectorAll('nav button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  ['list', 'form', 'att', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
   if (!noRender) currentTabRender();
 }
-function currentTab() { const b = document.querySelector('nav button.on'); return b ? b.dataset.tab : 'list'; }
+function currentTab() { const b = document.querySelector('nav button[data-tab].on'); return b ? b.dataset.tab : 'list'; }
 async function currentTabRender() {
   const t = currentTab();
   try {
     if (t === 'list') await renderList();
     if (t === 'dash') await renderDash();
+    if (t === 'att') await renderAtt();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -415,7 +529,7 @@ async function renderList(noFetch) {
       '<td class="hide-sm">' + esc(r.trip) + '<div class="small muted">' + esc(r.car) + '</div></td>' +
       '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') + '</td>' +
       '<td class="num">' + (r.charges ? rp(r.charges) : '<span class="muted">—</span>') + '<div class="small muted">' + esc(r.payment) + '</div></td>' +
-      '<td><span class="chip ' + s + '">' + s + '</span></td>' +
+      '<td><span class="chip ' + s + '">' + s + '</span>' + (r.finishedAt ? '<div class="small muted">Selesai ' + esc(r.finishedAt.slice(11)) + '</div>' : '') + '</td>' +
       '<td><div class="acts">' +
         (s !== 'DONE' ? '<button class="btn sm" onclick="setStatus(\'' + r.id + '\',\'DONE\')">Done</button>' : '') +
         (s !== 'CANCELLED' ? '<button class="btn sm red" onclick="setStatus(\'' + r.id + '\',\'CANCELLED\')">Cancel</button>' : '') +
@@ -768,15 +882,210 @@ async function renderDash() {
   $('dDriver').innerHTML = drv.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td style="width:50%"><div class="bar"><i style="width:' + (v / maxD * 100) + '%"></i></div></td><td class="num">' + v + ' trip</td></tr>').join('') || '<tr><td class="muted">Belum ada data.</td></tr>';
 }
 
+
+/* =================== ADMIN: ABSEN & OT =================== */
+['aMonth', 'aDriver', 'aStatus'].forEach(id => $(id).addEventListener('change', () => renderAtt(id !== 'aMonth')));
+const hm = s => s ? s.slice(11, 16) : '—';
+const dm = s => s ? fmtDate(s.slice(0, 10)) : '';
+const jam = n => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('id-ID') + ' j';
+const otChip = st => { const c = st === 'NO OT' ? 'NOOT' : (st || 'NOOT'); return '<span class="chip ' + c + '">' + esc(st === 'PENDING' ? 'PERLU APPROVE' : (st || '—')) + '</span>'; };
+
+async function renderAtt(keep) {
+  const m = $('aMonth').value || today().slice(0, 7);
+  const [f, t] = monthRange(m);
+  if (!keep || !S.att || S.attMonth !== m) {
+    if (!keep) $('aBody').innerHTML = '<tr><td colspan="10" class="muted">Memuat…</td></tr>';
+    S.att = await api('attList', { from: f, to: t }); S.attMonth = m;
+    await ensureRange(f, t);
+  }
+  const A = S.att;
+  const cur = $('aDriver').value;
+  const keys = Array.from(new Set(A.drivers.map(d => d.key).concat(A.rows.map(r => r.driver)))).sort();
+  $('aDriver').innerHTML = '<option value="">Semua driver</option>' + keys.map(k => '<option>' + esc(k) + '</option>').join('');
+  $('aDriver').value = cur;
+  const miss = A.drivers.filter(d => d.active && (!d.empId || !d.hasPin));
+  $('aWarn').classList.toggle('hidden', !miss.length);
+  $('aWarn').innerHTML = miss.length ? '<b>Lengkapi tab DRIVER di sheet:</b> ' + miss.map(d => esc(d.key) + ' (' + [!d.empId ? 'Employee ID' : '', !d.hasPin ? 'PIN' : ''].filter(Boolean).join(' & ') + ')').join(', ') : '';
+
+  let rows = A.rows;
+  if (cur) rows = rows.filter(r => r.driver === cur);
+  const st = $('aStatus').value;
+  if (st) rows = rows.filter(r => r.otStatus === st);
+
+  const all = cur ? A.rows.filter(r => r.driver === cur) : A.rows;
+  const pend = all.filter(r => r.otStatus === 'PENDING'), appr = all.filter(r => r.otStatus === 'APPROVED');
+  $('aStats').innerHTML = stat('Hari absen', all.length) + stat('Perlu approve', pend.length) +
+    stat('OT perlu approve', jam(pend.reduce((a, r) => a + r.otApproved, 0))) + stat('OT approved', jam(appr.reduce((a, r) => a + r.otApproved, 0))) +
+    stat('Sedang clock in', all.filter(r => r.otStatus === 'BERJALAN').length);
+
+  const done = rowsIn(f, t).filter(r => r.finishedAt);
+  $('aSum').innerHTML = keys.filter(k => !cur || k === cur).map(k => {
+    const rr = A.rows.filter(r => r.driver === k);
+    return '<tr><td><b>' + esc(k) + '</b></td><td class="num">' + rr.length + '</td><td class="num">' + done.filter(b => b.driver === k).length +
+      '</td><td class="num">' + jam(rr.filter(r => r.otStatus === 'PENDING').reduce((a, r) => a + r.otApproved, 0)) +
+      '</td><td class="num"><b>' + jam(rr.filter(r => r.otStatus === 'APPROVED').reduce((a, r) => a + r.otApproved, 0)) + '</b></td></tr>';
+  }).join('') || '<tr><td colspan="5" class="muted">Belum ada data.</td></tr>';
+
+  $('aBody').innerHTML = rows.length ? rows.map(r => {
+    const canAct = r.otStatus !== 'BERJALAN';
+    const flags = [];
+    if (r.autoClose) flags.push('Lupa clock out');
+    if (r.inDist > 2000 || r.outDist > 2000) flags.push('Di luar area');
+    if (r.inLoc === 'TIDAK ADA GPS' || r.outLoc === 'TIDAK ADA GPS') flags.push('Tanpa GPS');
+    return '<tr><td>' + dm(r.clockIn) + '</td><td><b>' + esc(r.driver) + '</b><div class="small muted">' + esc(r.empId || 'Employee ID kosong') + '</div></td>' +
+      '<td>' + hm(r.clockIn) + ' → ' + (r.clockOut ? hm(r.clockOut) + (r.clockOut.slice(0, 10) !== r.clockIn.slice(0, 10) ? ' <span class="small muted">(+1)</span>' : '') : '<i>belum</i>') + '</td>' +
+      '<td>' + hm(r.normalEnd) + '<div class="small muted">' + r.normalHours + ' jam</div></td>' +
+      '<td>' + hm(r.lastTrip) + '</td><td class="num">' + jam(r.otCalc) + '</td>' +
+      '<td style="width:90px">' + (canAct ? '<input type="number" min="0" step="0.5" value="' + r.otApproved + '" id="ot-' + r.id + '"' + (r.otStatus === 'APPROVED' ? ' title="Ubah lalu Approve lagi untuk koreksi"' : '') + '>' : '—') + '</td>' +
+      '<td>' + otChip(r.otStatus) + (r.procBy ? '<div class="small muted">' + esc(r.procBy) + '</div>' : '') + '</td>' +
+      '<td class="small">' + esc(flags.concat(r.note && !/Lupa clock out|luar area/.test(r.note) ? [r.note] : []).join(' · ')) + '</td>' +
+      '<td><div class="acts">' + (canAct ? '<button class="btn sm" onclick="otApprove(\'' + r.id + '\')">' + (r.otStatus === 'APPROVED' ? 'Update' : 'Approve') + '</button>' +
+        (r.otStatus !== 'REJECTED' && r.otStatus !== 'NO OT' ? '<button class="btn sm red" onclick="otReject(\'' + r.id + '\')">Reject</button>' : '') : '') + '</div></td></tr>';
+  }).join('') : '<tr><td colspan="10" class="muted">Tidak ada data absen.</td></tr>';
+}
+
+async function otApprove(id) {
+  const h = Number($('ot-' + id).value);
+  if (!(h > 0)) { toast('Isi jam OT lebih dari 0, atau pakai Reject', true); return; }
+  try {
+    await api('otApprove', { id: id, hours: h, by: 'Admin Taxi' });
+    const r = S.att.rows.find(x => x.id === id); if (r) { r.otStatus = 'APPROVED'; r.otApproved = h; r.procBy = 'Admin Taxi'; }
+    toast('OT ' + jam(h) + ' masuk ke Leave Management'); renderAtt(true);
+  } catch (e) { toast(e.message, true); }
+}
+async function otReject(id) {
+  const note = prompt('Alasan reject OT (opsional):', '');
+  if (note === null) return;
+  try {
+    await api('otReject', { id: id, note: note, by: 'Admin Taxi' });
+    const r = S.att.rows.find(x => x.id === id); if (r) { r.otStatus = 'REJECTED'; r.otApproved = 0; r.procBy = 'Admin Taxi'; }
+    toast('OT di-reject'); renderAtt(true);
+  } catch (e) { toast(e.message, true); }
+}
+
+/* =================== DRIVER =================== */
+document.querySelectorAll('nav button[data-dtab]').forEach(b => b.onclick = () => showDTab(b.dataset.dtab));
+function showDTab(t) {
+  document.querySelectorAll('nav button[data-dtab]').forEach(b => b.classList.toggle('on', b.dataset.dtab === t));
+  $('dtab-home').classList.toggle('hidden', t !== 'home'); $('dtab-hist').classList.toggle('hidden', t !== 'hist');
+  if (t === 'hist') renderHist(); else driverRefresh();
+}
+async function driverBoot() { $('hMonth').value = today().slice(0, 7); await driverRefresh(true); }
+async function driverRefresh(showErr) {
+  if ($('dtab-hist') && !$('dtab-hist').classList.contains('hidden')) return renderHist(true);
+  try { S.dh = await api('dhome'); renderDHome(); }
+  catch (e) { if (showErr) toast(e.message, true); }
+}
+const dayLabel = d => { const t = today(); const diff = Math.round((new Date(d + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000);
+  return diff === 0 ? 'Hari ini' : diff === 1 ? 'Besok' : diff === -1 ? 'Kemarin' : fmtDate(d); };
+
+function renderDHome() {
+  const h = S.dh, a = h.att, open = h.open;
+  let html;
+  if (open) {
+    html = '<div class="muted small">Sedang bekerja sejak</div><div class="big">' + hm(a.clockIn) + '</div><div class="muted small">' + dm(a.clockIn) + '</div>' +
+      '<div class="kv"><div><span class="small muted">Jam normal selesai</span><b>' + hm(a.normalEnd) + '</b></div>' +
+      '<div><span class="small muted">Trip terakhir selesai</span><b>' + hm(a.lastTrip) + '</b></div>' +
+      '<div><span class="small muted">Perkiraan OT</span><b>' + jam(a.otCalc) + '</b></div>' +
+      '<div><span class="small muted">Jam kerja normal</span><b>' + a.normalHours + ' jam</b></div></div>' +
+      '<button class="btn red" id="btnClock" onclick="doClock(\'clockout\')">Clock Out</button>' +
+      '<p class="small muted" style="margin:8px 0 0">OT dihitung sampai trip terakhir yang ditandai selesai + 1 jam. Tandai "Selesai trip" di setiap booking.</p>';
+  } else {
+    html = '<div class="muted small">Status</div><div class="big">Belum clock in</div>' +
+      (a ? '<div class="muted small">Absen terakhir: ' + dm(a.clockIn) + ' ' + hm(a.clockIn) + ' → ' + hm(a.clockOut) + (a.otCalc ? ' · OT ' + jam(a.otCalc) : '') + '</div>' : '') +
+      '<button class="btn" id="btnClock" onclick="doClock(\'clockin\')">Clock In</button>';
+  }
+  $('dAbsen').innerHTML = html;
+
+  const trips = h.bookings.filter(b => b.depart !== 'CANCELLED' || b.date >= h.today);
+  if (!trips.length) { $('dTrips').innerHTML = '<p class="daylbl">Booking saya</p><div class="card muted">Belum ada booking untuk Anda.</div>'; return; }
+  let last = '', out = '';
+  trips.forEach(b => {
+    if (b.date !== last) { out += '<p class="daylbl">' + dayLabel(b.date) + '</p>'; last = b.date; }
+    out += tripCard(b, true);
+  });
+  $('dTrips').innerHTML = out;
+}
+
+function tripCard(b, action) {
+  const canc = b.depart === 'CANCELLED';
+  return '<div class="trip"' + (canc ? ' style="opacity:.55"' : '') + '><div class="row" style="justify-content:space-between;align-items:center">' +
+    '<span class="t">' + esc(b.time || '--:--') + '</span>' +
+    (canc ? '<span class="chip CANCELLED">CANCELLED</span>' : b.finishedAt ? '<span class="chip FIN">SELESAI ' + esc(b.finishedAt.slice(11)) + '</span>' : '<span class="chip PENDING">BELUM SELESAI</span>') + '</div>' +
+    '<div class="r">' + esc(b.pickup) + ' → ' + esc(b.dropoff) + '</div>' +
+    '<div class="small">' + esc(b.guest) + (b.company ? ' · <span class="muted">' + esc(b.company) + '</span>' : '') + '</div>' +
+    '<div class="small muted">' + [b.trip, b.car, b.flight ? 'Flight ' + b.flight : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
+    (action && !canc && !b.finishedAt ? '<button class="btn" onclick="finishTrip(\'' + b.id + '\', this)">Selesai trip</button>' : '') + '</div>';
+}
+
+function getPos() {
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null), { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+  });
+}
+async function doClock(kind) {
+  if (kind === 'clockout' && !confirm('Clock out sekarang?')) return;
+  const btn = $('btnClock'); btn.disabled = true; btn.textContent = 'Mengambil lokasi…';
+  const pos = await getPos();
+  if (!pos && !confirm('Lokasi GPS tidak terbaca. Tetap ' + (kind === 'clockin' ? 'clock in' : 'clock out') + ' tanpa lokasi? (akan ditandai)')) { renderDHome(); return; }
+  btn.textContent = 'Menyimpan…';
+  try {
+    const r = await api(kind, pos || {});
+    toast(kind === 'clockin' ? 'Clock in ' + hm(r.clockIn) + ' tercatat' : 'Clock out tercatat' + (r.ot ? ' · OT ' + jam(r.ot) + ' menunggu approve admin' : ''));
+    await driverRefresh(true);
+  } catch (e) { toast(e.message, true); renderDHome(); }
+}
+async function finishTrip(id, btn) {
+  if (!confirm('Tandai trip ini selesai?')) return;
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  try {
+    const r = await api('finish', { id: id });
+    const b = S.dh.bookings.find(x => x.id === id); if (b) { b.finishedAt = r.finishedAt; b.depart = 'DONE'; }
+    toast('Trip selesai ' + r.finishedAt.slice(11));
+    renderDHome(); driverRefresh();
+  } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Selesai trip'; }
+}
+
+$('hMonth').addEventListener('change', () => renderHist());
+async function renderHist(silent) {
+  if (!silent) $('hTrips').innerHTML = '<div class="card muted">Memuat…</div>';
+  try {
+    const h = await api('dhistory', { month: $('hMonth').value || today().slice(0, 7) });
+    const fin = h.bookings.filter(b => b.finishedAt || b.depart === 'DONE');
+    const appr = h.att.filter(a => a.otStatus === 'APPROVED'), pend = h.att.filter(a => a.otStatus === 'PENDING');
+    $('hStats').innerHTML = stat('Trip selesai', fin.length) + stat('Hari absen', h.att.length) +
+      stat('OT approved', jam(appr.reduce((x, a) => x + a.otApproved, 0))) + stat('OT menunggu', jam(pend.reduce((x, a) => x + a.otApproved, 0)));
+    $('hAtt').innerHTML = h.att.length ? '<div class="card" style="padding:0"><table>' + h.att.map(a =>
+      '<tr><td>' + dm(a.clockIn) + '<div class="small muted">' + hm(a.clockIn) + ' → ' + (a.clockOut ? hm(a.clockOut) : 'belum') + '</div></td>' +
+      '<td class="num">' + (a.otStatus === 'APPROVED' ? jam(a.otApproved) : jam(a.otCalc)) + '<div>' + otChip(a.otStatus) + '</div></td></tr>').join('') + '</table></div>'
+      : '<div class="card muted">Belum ada absen bulan ini.</div>';
+    const list = h.bookings.slice().reverse();
+    let last = '', out = '';
+    list.forEach(b => { if (b.date !== last) { out += '<p class="daylbl">' + fmtDate(b.date) + '</p>'; last = b.date; } out += tripCard(b, false); });
+    $('hTrips').innerHTML = out || '<div class="card muted">Belum ada booking bulan ini.</div>';
+  } catch (e) { toast(e.message, true); }
+}
+
 /* ---------- auto sinkron: perubahan dari sheet / admin lain / Auto DONE muncul sendiri ---------- */
 setInterval(() => {
-  if ($('appView').classList.contains('hidden') || currentTab() === 'form' || document.hidden) return;
+  if (document.hidden) return;
+  if (!$('driverView').classList.contains('hidden')) { driverRefresh(); return; }
+  if ($('appView').classList.contains('hidden') || currentTab() === 'form') return;
+  if (currentTab() === 'att') { renderAtt(true); return; }
   syncSilent();
 }, 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('appView').classList.contains('hidden') && currentTab() !== 'form') syncSilent(); });
 
 /* ---------- auto login ---------- */
-try { const p = sessionStorage.getItem('taxiPin'); if (p) { $('pinInput').value = p; login(); } } catch (e) {}
+try {
+  const ss = JSON.parse(sessionStorage.getItem('taxiSess') || 'null');
+  if (ss && ss.pin) {
+    $('pinInput').value = ss.pin;
+    if (ss.role === 'driver') { setLoginRole('driver'); S.loginRole = 'driver'; $('driverSel').innerHTML = '<option>' + esc(ss.driver) + '</option>'; $('driverSel').value = ss.driver; }
+    login();
+  }
+} catch (e) {}
 </script>
 </body>
 </html>
