@@ -1029,7 +1029,8 @@ function tplText(b, withPrice, noDate) {
   // lokasi: link Maps yang di-paste → link itu; dipilih di peta → link Google Maps titiknya; selain itu teks
   const tc = s => String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
   const place = (txt, L) => L ? (L.link || 'https://maps.google.com/?q=' + L.lat.toFixed(6) + ',' + L.lng.toFixed(6)) : (/^https?:/i.test(txt) ? txt : tc(txt) || '-');
-  const waName = b.driver && S.master && S.master.lists.driverWa && S.master.lists.driverWa[b.driver];
+  // nama asli driver dari kolom NAMA LENGKAP di tab DRIVER (kalau kosong: nama di booking)
+  const realName = b.driver && S.master && S.master.lists.driverName && S.master.lists.driverName[b.driver];
   const lines = [
     noDate ? '' : day,
     'Req by: ' + tc(reqBy),
@@ -1043,7 +1044,7 @@ function tplText(b, withPrice, noDate) {
     /ALPHARD/i.test(b.car || '') ? 'Car: Alphard' : '',
     'Payment: ' + (b.payment || '-'),
     withPrice && b.charges ? 'Charges: ' + rp(b.charges) : '',
-    'Driver : ' + (b.driver ? '@' + (waName || tc(b.driver)) : '-'),
+    'Driver : ' + (b.driver && b.driver !== 'CANCELLED' ? (realName || tc(b.driver)) : '-'),
     b.purpose ? 'Note: ' + b.purpose : ''
   ];
   return lines.filter(Boolean).join('\n');
