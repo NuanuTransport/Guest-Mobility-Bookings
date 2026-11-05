@@ -255,6 +255,11 @@ const RULE_ALIAS = {
 };
 // Selalu harga normal (customer maupun employee)
 const NORMAL_PRICE = ['SOL STUDIO', 'LABYRINTH', 'BIOM', 'PROED GLOBAL SCHOOL', 'EDEN UBUD', 'SERVICE AND MEDIC SUPPORT'];
+// Diskon khusus per nama (dicek di kolom REQ BY - GUEST NAME), berlaku setiap booking
+const NAME_DISCOUNT = [
+  { name: 'ELFRIDA', pct: 20, label: 'Ibu Elfrida' },
+  { name: 'MAXIM', pct: 20, label: 'Maxim' }
+];
 // Agreement flat bulanan → charges per trip = 0, ditagih bulanan
 const MONTHLY_FLAT = { 'HANDARA': 18000000 };
 // TAXI EMERGENCY (Trip = EMERGENCY), berlaku untuk company mana pun maupun personal.
@@ -569,7 +574,12 @@ function calcPrice() {
   if (rentTrip && !/hour/i.test(p.area)) notes.push('Trip RENT tapi area bukan paket jam — pilih area "x Hour Rent".');
 
   let final = base, ruleTxt = 'Harga normal (tidak ada aturan khusus untuk company ini).';
-  if (NORMAL_PRICE.indexOf(company) >= 0) {
+  const guestUp = $('fGuest').value.toUpperCase();
+  const nd = NAME_DISCOUNT.find(x => new RegExp('\\b' + x.name + '\\b').test(guestUp));
+  if (nd) {
+    final = base * (100 - nd.pct) / 100;
+    ruleTxt = 'Diskon khusus ' + nd.label + ': ' + nd.pct + '% setiap booking.';
+  } else if (NORMAL_PRICE.indexOf(company) >= 0) {
     ruleTxt = company + ': Normal Price (customer & employee).';
   } else if (rule) {
     const r = rule[pax];
