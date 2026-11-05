@@ -1470,7 +1470,10 @@ function renderDHome() {
   const tmr = addDay(h.today, 1);
   const nTmr = h.bookings.filter(b => b.date === tmr && b.depart !== 'CANCELLED').length;
   const tmrBar = '<div class="card" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="showDTab(\'tmr\')"><span><b>Job besok</b> <span class="muted">· ' + fmtDate(tmr) + '</span></span><span class="chip ' + (nTmr ? 'PENDING' : 'NOOT') + '">' + (nTmr ? nTmr + ' job' : 'Standby P1') + '</span></div>';
-  const trips = h.bookings.filter(b => b.date <= h.today && (b.depart !== 'CANCELLED' || b.date === h.today));
+  // hari ini: semua booking hari ini. Booking kemarin hanya kalau jam pick up-nya ≤ 6 jam yang lalu dan belum selesai
+  // (trip malam yang lewat tengah malam); selebihnya tidak ditampilkan lagi.
+  const recent = b => { const t = new Date(b.date + 'T' + (/^\d{2}:\d{2}$/.test(b.time) ? b.time : '00:00') + ':00'); return Date.now() - t.getTime() <= 6 * 3600000; };
+  const trips = h.bookings.filter(b => b.date === h.today || (b.date < h.today && !b.finishedAt && b.depart !== 'CANCELLED' && recent(b)));
   if (!trips.length) { $('dTrips').innerHTML = '<p class="daylbl">Hari ini</p><div class="card muted">Belum ada booking untuk Anda hari ini.</div>' + tmrBar; return; }
   let last = '', out = '';
   trips.forEach(b => {
