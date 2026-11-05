@@ -191,6 +191,7 @@
           <button class="btn ghost" onclick="shiftDay(-1)">‹</button>
           <button class="btn ghost" onclick="setToday()">Hari ini</button>
           <button class="btn ghost" onclick="shiftDay(1)">›</button>
+          <button class="btn" onclick="bulkTpl()">Template WA semua</button>
         </div>
       </div>
       <div class="stats" id="lStats" style="margin-bottom:14px"></div>
@@ -368,6 +369,23 @@
       <p class="daylbl">Riwayat booking</p>
       <div id="hTrips"></div>
     </section>
+  </div>
+</div>
+
+<!-- TEMPLATE WA SEMUA BOOKING (H-1) -->
+<div id="bulkModal" class="dmodal hidden" onclick="if(event.target===this)$('bulkModal').classList.add('hidden')">
+  <div class="dbox" style="max-width:600px">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h3 id="bulkTitle" style="margin:0"></h3>
+      <label class="small" style="display:flex;gap:6px;align-items:center;margin:0;font-weight:600"><input type="checkbox" id="bulkPrice" style="width:auto" onchange="renderBulk()"> Sertakan harga</label>
+    </div>
+    <div class="small muted" id="bulkSub" style="margin-top:4px"></div>
+    <div class="tpl" id="bulkText" style="max-height:55vh;overflow:auto"></div>
+    <div class="row">
+      <button class="btn" onclick="copyText($('bulkText').textContent)">Salin teks</button>
+      <button class="btn ghost" onclick="window.open('https://wa.me/?text=' + encodeURIComponent($('bulkText').textContent), '_blank')">Buka WhatsApp</button>
+      <button class="btn ghost" onclick="$('bulkModal').classList.add('hidden')">Tutup</button>
+    </div>
   </div>
 </div>
 
@@ -1002,7 +1020,7 @@ async function syncSilent() {
   S.syncing = false;
 }
 
-function tplText(b, withPrice) {
+function tplText(b, withPrice, noDate) {
   // format grup WA: tanggal, Req by, Guest Name, WA, Time, Pick Up, Destination, Payment, Driver
   const parts = String(b.guest || '').split(/\s+-\s+/).map(x => x.trim()).filter(Boolean);
   const reqBy = parts[0] || '-', guest = parts.length > 1 ? parts.slice(1).join(' - ') : reqBy;
@@ -1013,7 +1031,7 @@ function tplText(b, withPrice) {
   const place = (txt, L) => L ? (L.link || 'https://maps.google.com/?q=' + L.lat.toFixed(6) + ',' + L.lng.toFixed(6)) : (/^https?:/i.test(txt) ? txt : tc(txt) || '-');
   const waName = b.driver && S.master && S.master.lists.driverWa && S.master.lists.driverWa[b.driver];
   const lines = [
-    day,
+    noDate ? '' : day,
     'Req by: ' + tc(reqBy),
     'Guest Name: ' + tc(guest),
     'WA: ' + (b.wa || '-'),
@@ -1037,16 +1055,38 @@ function showTpl() {
   $('tplCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 $('tplPrice').addEventListener('change', showTpl);
-async function copyTpl() {
-  const t = $('tplText').textContent;
+async function copyTpl() { return copyText($('tplText').textContent); }
+async function copyText(t) {
   try { await navigator.clipboard.writeText(t); toast('Teks disalin — paste di grup WhatsApp'); }
   catch (e) {
+    const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Teks disalin'); return; } catch (x) {} finally { ta.remove(); }
     const r = document.createRange(); r.selectNodeContents($('tplText'));
     const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
     try { document.execCommand('copy'); toast('Teks disalin'); } catch (x) { toast('Tekan lama teks lalu pilih Salin', true); }
   }
 }
 function shareTpl() { window.open('https://wa.me/?text=' + encodeURIComponent($('tplText').textContent), '_blank'); }
+/* template WA semua booking satu tanggal — untuk share H-1 malam hari */
+async function bulkTpl() {
+  const day = $('lDate').value || today();
+  try { await ensureRange(day, day); } catch (e) { toast(e.message, true); return; }
+  S.bulkDay = day; renderBulk();
+  $('bulkModal').classList.remove('hidden');
+}
+function renderBulk() {
+  const day = S.bulkDay;
+  const list = rowsIn(day, day).filter(r => r.depart !== 'CANCELLED' && r.driver !== 'CANCELLED')
+    .sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+  const dayLbl = new Date(day + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const wp = $('bulkPrice').checked;
+  $('bulkTitle').textContent = 'Semua booking · ' + fmtDate(day);
+  $('bulkSub').textContent = list.length ? list.length + ' booking (cancel tidak ikut). Ganti tanggal di Booking Harian untuk hari lain.' : '';
+  $('bulkText').textContent = !list.length ? 'Belum ada booking di tanggal ini.'
+    : '*BOOKING ' + dayLbl.toUpperCase() + '*\n' + list.length + ' booking\n\n' +
+      list.map((r, i) => (i + 1) + '.\n' + tplText(r, wp, true)).join('\n\n');
+}
+
 /* template dari daftar booking (tombol WA) */
 function tplFromList(id) {
   const r = S.rows.find(x => x.id === id); if (!r) return;
