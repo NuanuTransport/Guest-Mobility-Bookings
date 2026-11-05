@@ -6,6 +6,8 @@
 <title>Nuanu Taxi Booking</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   :root{
     --bg:#f4f5f2; --card:#ffffff; --ink:#1d2320; --muted:#6b736e; --line:#e2e5e0;
@@ -76,13 +78,26 @@
   .absen{text-align:center}
   .absen .big{font-size:28px;font-weight:700;margin:6px 0 2px}
   .absen .btn{width:100%;padding:14px;font-size:16px;margin-top:12px}
+  .inwrap{display:flex;gap:6px}
+  .inwrap input{flex:1;min-width:0}
+  .inwrap .btn{padding:9px 10px;white-space:nowrap}
+  .areatag{font-size:11px;font-weight:600;color:var(--blue);margin-top:4px;min-height:14px}
+  .mapmodal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;align-items:center;justify-content:center;padding:12px}
+  .mapbox{background:#fff;border-radius:14px;width:100%;max-width:820px;max-height:100%;display:flex;flex-direction:column;overflow:hidden}
+  .mapbox .hd{padding:12px;display:flex;gap:8px;border-bottom:1px solid var(--line)}
+  .mapbox .hd input{flex:1}
+  #pickMap{height:56vh;min-height:300px}
+  .mapbox .ft{padding:12px;border-top:1px solid var(--line)}
+  .mapres{max-height:160px;overflow:auto;border-bottom:1px solid var(--line)}
+  .mapres div{padding:8px 12px;cursor:pointer;border-top:1px solid var(--line);font-size:13px}
+  .mapres div:hover{background:var(--bg)}
+  #geoMap{height:62vh;min-height:360px;border-radius:10px}
   .loc{margin-top:8px;font-size:13px;color:var(--muted);line-height:1.4}
   .loc b{color:var(--ink);font-weight:600}
   .cam{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column}
   .cam video{flex:1;width:100%;object-fit:cover;min-height:0}
   .cam.selfie video{transform:scaleX(-1)}
   .cam.scene .oval{display:none}
-  .joblink{display:inline-block;margin-top:6px;font-size:12px;font-weight:600;color:var(--brand)}
   .cam .oval{position:absolute;left:50%;top:42%;width:62vw;max-width:280px;aspect-ratio:3/4;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,.45);pointer-events:none}
   .cam .camtxt{position:absolute;left:0;right:0;top:18px;text-align:center;color:#fff;font-weight:600;padding:0 16px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
   .cam .cambar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px 28px;background:#000}
@@ -137,6 +152,7 @@
     <button data-tab="list" class="on">Booking Harian</button>
     <button data-tab="form">+ Booking Baru</button>
     <button data-tab="att">Absen & OT</button>
+    <button data-tab="geo">Area Peta</button>
     <button data-tab="dash">Dashboard</button>
   </nav>
   <main>
@@ -174,8 +190,8 @@
           <div><label>Req By - Guest Name *</label><input id="fGuest" placeholder="SUKMA - MR JOHN"></div>
           <div><label>Company *</label><select id="fCompany"></select></div>
           <div><label>Details Flight</label><input id="fFlight" placeholder="QR960"></div>
-          <div><label>Pick Up *</label><input id="fPickup" list="dlDest" placeholder="Ketik / pilih lokasi"></div>
-          <div><label>Drop Off * (destination)</label><input id="fDropoff" list="dlDest" placeholder="Ketik / pilih destination"></div>
+          <div><label>Pick Up *</label><div class="inwrap"><input id="fPickup" list="dlDest" placeholder="Ketik / pilih dari list"><button type="button" class="btn ghost" onclick="openPicker('pickup')">Peta</button></div><div class="areatag" id="tagPickup"></div></div>
+          <div><label>Drop Off * (destination)</label><div class="inwrap"><input id="fDropoff" list="dlDest" placeholder="Ketik / pilih dari list"><button type="button" class="btn ghost" onclick="openPicker('dropoff')">Peta</button></div><div class="areatag" id="tagDropoff"></div></div>
           <div><label>Trip</label>
             <select id="fTrip">
               <option value="SINGEL">SINGLE (1× harga)</option><option value="ROUND">ROUND / pulang pergi (2× harga)</option>
@@ -224,6 +240,22 @@
           <span class="sp" style="flex:1"></span>
           <button class="btn red hidden" id="fDelete" onclick="deleteBooking()">Hapus</button>
         </div>
+      </div>
+    </section>
+
+    <!-- AREA PETA (GEOFENCE) -->
+    <section id="tab-geo" class="hidden">
+      <div class="card">
+        <div class="row">
+          <div style="flex:1;min-width:220px"><label>Area price list</label><select id="gArea"></select></div>
+          <button class="btn ghost" onclick="geoUndo()">Undo titik</button>
+          <button class="btn ghost" onclick="geoClear()">Mulai ulang</button>
+          <button class="btn" onclick="geoSaveArea()">Simpan area</button>
+          <button class="btn red" onclick="geoDeleteArea()">Hapus area</button>
+        </div>
+        <p class="small muted" style="margin:10px 0">Pilih area, lalu klik di peta untuk menggambar batasnya (minimal 3 titik), kemudian Simpan. Lokasi pick up / drop off yang jatuh di dalam batas ini otomatis memakai harga area tersebut. Kalau titik tidak masuk area mana pun, harga dicocokkan dari nama desa/kelurahan (mis. Jl. Sempol → Pererenan).</p>
+        <div id="geoMap"></div>
+        <p class="small muted" id="gInfo" style="margin:8px 0 0"></p>
       </div>
     </section>
 
@@ -294,6 +326,25 @@
       <p class="daylbl">Riwayat booking</p>
       <div id="hTrips"></div>
     </section>
+  </div>
+</div>
+
+<!-- PILIH LOKASI DI PETA -->
+<div id="mapModal" class="mapmodal hidden">
+  <div class="mapbox">
+    <div class="hd">
+      <input id="mapQ" placeholder="Cari alamat / tempat, mis. Jalan Sempol">
+      <button class="btn" onclick="mapSearch()">Cari</button>
+    </div>
+    <div class="mapres hidden" id="mapRes"></div>
+    <div id="pickMap"></div>
+    <div class="ft">
+      <div id="mapInfo" class="small muted">Klik di peta atau cari alamat untuk memilih lokasi.</div>
+      <div class="row" style="margin-top:10px;justify-content:flex-end">
+        <button class="btn ghost" onclick="closePicker()">Batal</button>
+        <button class="btn" id="mapUse" onclick="usePicked()" disabled>Pakai lokasi ini</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -511,7 +562,7 @@ function rowsIn(from, to) { return S.rows.filter(r => r.date >= from && r.date <
 document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(t, noRender) {
   document.querySelectorAll('nav button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['list', 'form', 'att', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
+  ['list', 'form', 'att', 'geo', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
   if (!noRender) currentTabRender();
 }
 function currentTab() { const b = document.querySelector('nav button[data-tab].on'); return b ? b.dataset.tab : 'list'; }
@@ -521,6 +572,7 @@ async function currentTabRender() {
     if (t === 'list') await renderList();
     if (t === 'dash') await renderDash();
     if (t === 'att') await renderAtt();
+    if (t === 'geo') renderGeo();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -556,8 +608,7 @@ async function renderList(noFetch) {
       '<td class="hide-sm">' + esc(r.trip) + '<div class="small muted">' + esc(r.car) + '</div></td>' +
       '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') + '</td>' +
       '<td class="num">' + (r.charges ? rp(r.charges) : '<span class="muted">—</span>') + '<div class="small muted">' + esc(r.payment) + '</div></td>' +
-      '<td><span class="chip ' + s + '">' + s + '</span>' + (r.finishedAt ? '<div class="small muted">Selesai ' + esc(r.finishedAt.slice(11)) + '</div>' : '') +
-        (r.jobPhoto ? (/^https?:/.test(r.jobPhoto) ? '<a class="joblink" href="' + esc(r.jobPhoto) + '" target="_blank" rel="noopener">Foto job</a>' : '<div class="small" style="color:var(--red)">Foto gagal</div>') : '') + '</td>' +
+      '<td><span class="chip ' + s + '">' + s + '</span>' + (r.finishedAt ? '<div class="small muted">Selesai ' + esc(r.finishedAt.slice(11)) + '</div>' : '') + '</td>' +
       '<td><div class="acts">' +
         (s !== 'DONE' ? '<button class="btn sm" onclick="setStatus(\'' + r.id + '\',\'DONE\')">Done</button>' : '') +
         (s !== 'CANCELLED' ? '<button class="btn sm red" onclick="setStatus(\'' + r.id + '\',\'CANCELLED\')">Cancel</button>' : '') +
@@ -601,6 +652,7 @@ function resetForm() {
   $('fDelete').classList.add('hidden'); $('fClash').classList.add('hidden');
   $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.';
   S.chargesTouched = false; S.paxTouched = false; S.payAuto = false; S.areaManual = false;
+  S.loc = { pickup: null, dropoff: null }; setTag('pickup'); setTag('dropoff');
   buildAreas();
 }
 
@@ -648,7 +700,11 @@ function guessPax() {
 ['fArea', 'fPax', 'fTrip', 'fCar', 'fCompany'].forEach(id => $(id).addEventListener('change', () => applyPrice(false)));
 $('fWait').addEventListener('input', () => applyPrice(false));
 // Harga otomatis: begitu destination / pick up / trip diisi, area & harga langsung dihitung
-['fDropoff', 'fPickup'].forEach(id => ['input', 'change'].forEach(ev => $(id).addEventListener(ev, autoArea)));
+['fDropoff', 'fPickup'].forEach(id => ['input', 'change'].forEach(ev => $(id).addEventListener(ev, () => {
+  const k = id === 'fPickup' ? 'pickup' : 'dropoff';
+  if (ev === 'input' && S.loc[k]) { S.loc[k] = null; setTag(k); }     // diketik ulang → lokasi peta dilepas
+  autoArea();
+})));
 $('fTrip').addEventListener('change', autoArea);
 $('fArea').addEventListener('change', () => { S.areaManual = $('fArea').value !== ''; });
 function autoArea() {
@@ -687,8 +743,16 @@ function guessArea() {
   const rent = $('fTrip').value.match(/RENT\s*(\d+)/);
   let i = -1;
   if (rent) i = P.findIndex(p => new RegExp('^\\s*' + rent[1] + '\\s*Hour', 'i').test(p.area));
-  if (i < 0) i = matchArea($('fDropoff').value);    // destination diutamakan
-  if (i < 0) i = matchArea($('fPickup').value);     // mis. jemput di Airport → antar ke Nuanu
+  if (i < 0) {
+    // area tiap ujung: dari peta (geofence / nama desa) kalau dipilih di peta, kalau tidak dari teks
+    const ap = S.loc && S.loc.pickup ? S.loc.pickup.idx : matchArea($('fPickup').value);
+    const ad = S.loc && S.loc.dropoff ? S.loc.dropoff.idx : matchArea($('fDropoff').value);
+    // harga dihitung dari titik standby Nuanu (Beraban): pakai ujung yang BUKAN area Nuanu/Beraban
+    const home = x => x >= 0 && /BERABAN|NUANU/i.test(P[x].area);
+    if (ad >= 0 && !home(ad)) i = ad;
+    else if (ap >= 0 && !home(ap)) i = ap;
+    else i = ad >= 0 ? ad : ap;
+  }
   $('fArea').value = i >= 0 ? i : '';
 }
 
@@ -911,6 +975,158 @@ async function renderDash() {
 }
 
 
+
+/* =================== PETA: PILIH LOKASI & GEOFENCE =================== */
+const NUANU_LL = [-8.6365, 115.0878];
+const TILE = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTR = '&copy; OpenStreetMap';
+S.loc = { pickup: null, dropoff: null };
+
+function inPoly(lat, lng, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i][0], xi = poly[i][1], yj = poly[j][0], xj = poly[j][1];
+    if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function polyArea(poly) { let a = 0; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) a += (poly[j][1] + poly[i][1]) * (poly[j][0] - poly[i][0]); return Math.abs(a / 2); }
+function priceIdx(name) { return S.master.prices.findIndex(p => p.area.toUpperCase().trim() === String(name || '').toUpperCase().trim()); }
+
+/** Area harga untuk satu titik: 1) di dalam geofence (yang paling kecil kalau tumpang tindih), 2) nama desa/kecamatan. */
+function areaForPoint(lat, lng, names) {
+  const hits = (S.master.geofences || []).filter(g => inPoly(lat, lng, g.poly)).sort((a, b) => polyArea(a.poly) - polyArea(b.poly));
+  for (const g of hits) { const i = priceIdx(g.area); if (i >= 0) return { idx: i, how: 'geofence' }; }
+  for (const n of (names || [])) { const i = matchArea(n); if (i >= 0) return { idx: i, how: 'wilayah ' + n }; }
+  return { idx: -1, how: '' };
+}
+function setTag(k) {
+  const el = $(k === 'pickup' ? 'tagPickup' : 'tagDropoff'); if (!el) return;
+  const L = S.loc && S.loc[k];
+  el.textContent = !L ? '' : (L.idx >= 0 ? 'Peta → area ' + S.master.prices[L.idx].area + ' (' + L.how + ')' : 'Peta → area tidak dikenali, pilih area harga manual');
+}
+
+let pickMap = null, pickMarker = null, pickPolys = null, pickFor = '', picked = null;
+function openPicker(k) {
+  if (!window.L) { toast('Peta gagal dimuat, cek koneksi internet', true); return; }
+  pickFor = k; picked = null;
+  $('mapModal').classList.remove('hidden'); $('mapRes').classList.add('hidden');
+  $('mapQ').value = ''; $('mapUse').disabled = true;
+  $('mapInfo').textContent = 'Klik di peta atau cari alamat untuk memilih lokasi ' + (k === 'pickup' ? 'pick up' : 'drop off') + '.';
+  if (!pickMap) {
+    pickMap = L.map('pickMap').setView(NUANU_LL, 12);
+    L.tileLayer(TILE, { maxZoom: 19, attribution: TILE_ATTR }).addTo(pickMap);
+    pickMap.on('click', e => pickAt(e.latlng.lat, e.latlng.lng));
+    pickPolys = L.layerGroup().addTo(pickMap);
+  }
+  pickPolys.clearLayers();
+  (S.master.geofences || []).forEach(g => L.polygon(g.poly, { color: '#2457a6', weight: 1, fillOpacity: .06 }).bindTooltip(g.area).addTo(pickPolys));
+  const L0 = S.loc[k];
+  setTimeout(() => { pickMap.invalidateSize(); if (L0) { pickMap.setView([L0.lat, L0.lng], 15); pickAt(L0.lat, L0.lng, L0); } }, 60);
+  setTimeout(() => $('mapQ').focus(), 100);
+}
+function closePicker() { $('mapModal').classList.add('hidden'); }
+$('mapQ').addEventListener('keydown', e => { if (e.key === 'Enter') mapSearch(); });
+
+async function mapSearch() {
+  const q = $('mapQ').value.trim(); if (!q) return;
+  $('mapRes').classList.remove('hidden'); $('mapRes').innerHTML = '<div class="muted">Mencari…</div>';
+  try {
+    const res = await api('geocode', { q: q });
+    S.mapRes = res;
+    $('mapRes').innerHTML = res.length ? res.map((r, i) => '<div onclick="pickResult(' + i + ')">' + esc(r.address) + '</div>').join('') : '<div class="muted">Tidak ditemukan. Coba kata lain atau klik langsung di peta.</div>';
+  } catch (e) { $('mapRes').innerHTML = '<div class="muted">' + esc(e.message) + '</div>'; }
+}
+function pickResult(i) {
+  const r = S.mapRes[i]; $('mapRes').classList.add('hidden');
+  pickMap.setView([r.lat, r.lng], 16);
+  pickAt(r.lat, r.lng, { address: r.address, names: r.names });
+}
+async function pickAt(lat, lng, known) {
+  if (pickMarker) pickMarker.setLatLng([lat, lng]); else pickMarker = L.marker([lat, lng]).addTo(pickMap);
+  picked = { lat: lat, lng: lng, address: known && known.address || '', names: known && known.names || [] };
+  $('mapUse').disabled = true;
+  $('mapInfo').innerHTML = 'Membaca lokasi…';
+  if (!picked.address) {
+    try { const g = await api('revgeo', { lat: lat, lng: lng }); if (picked.lat !== lat) return; picked.address = g.address; picked.names = g.names; }
+    catch (e) { picked.address = lat.toFixed(5) + ', ' + lng.toFixed(5); }
+  }
+  const a = areaForPoint(lat, lng, picked.names);
+  picked.idx = a.idx; picked.how = a.how;
+  $('mapInfo').innerHTML = '<b>' + esc(picked.address) + '</b><br>' + (a.idx >= 0
+    ? 'Area harga: <b>' + esc(S.master.prices[a.idx].area) + '</b> <span class="muted">(' + esc(a.how) + ')</span>'
+    : '<span style="color:var(--amber)">Belum masuk area price list — gambar batasnya di tab Area Peta, atau pilih area harga manual di form.</span>');
+  $('mapUse').disabled = false;
+}
+function shortName(addr) {
+  const parts = String(addr || '').split(',').map(x => x.trim()).filter(Boolean);
+  return parts.slice(0, 2).join(', ').toUpperCase();
+}
+function usePicked() {
+  if (!picked) return;
+  const k = pickFor;
+  S.loc[k] = picked;
+  $(k === 'pickup' ? 'fPickup' : 'fDropoff').value = shortName(picked.address);
+  setTag(k); closePicker();
+  S.areaManual = false; autoArea();
+}
+
+/* ---------- admin: gambar geofence ---------- */
+let geoMap = null, geoLayer = null, geoDraft = [], geoDraftLayer = null;
+function renderGeo() {
+  if (!window.L) { $('gInfo').textContent = 'Peta gagal dimuat, cek koneksi internet.'; return; }
+  const P = S.master.prices.filter(p => !/hour/i.test(p.area));
+  const cur = $('gArea').value;
+  const has = a => (S.master.geofences || []).some(g => g.area.toUpperCase() === a.toUpperCase());
+  $('gArea').innerHTML = P.map(p => '<option value="' + esc(p.area) + '">' + esc(p.area) + (has(p.area) ? ' ✓' : '') + '</option>').join('');
+  if (cur) $('gArea').value = cur;
+  if (!geoMap) {
+    geoMap = L.map('geoMap').setView(NUANU_LL, 11);
+    L.tileLayer(TILE, { maxZoom: 19, attribution: TILE_ATTR }).addTo(geoMap);
+    geoLayer = L.layerGroup().addTo(geoMap);
+    geoMap.on('click', e => { geoDraft.push([e.latlng.lat, e.latlng.lng]); drawDraft(); });
+    $('gArea').addEventListener('change', () => { geoDraft = []; drawGeo(); });
+  }
+  setTimeout(() => geoMap.invalidateSize(), 60);
+  geoDraft = []; drawGeo();
+}
+function drawGeo() {
+  geoLayer.clearLayers();
+  const sel = $('gArea').value.toUpperCase();
+  (S.master.geofences || []).forEach(g => {
+    const me = g.area.toUpperCase() === sel;
+    L.polygon(g.poly, { color: me ? '#1f5c46' : '#2457a6', weight: me ? 3 : 1, fillOpacity: me ? .2 : .07 }).bindTooltip(g.area, { sticky: true })
+      .on('click', () => { $('gArea').value = g.area; geoDraft = []; drawGeo(); }).addTo(geoLayer);
+  });
+  drawDraft();
+}
+function drawDraft() {
+  if (geoDraftLayer) { geoMap.removeLayer(geoDraftLayer); geoDraftLayer = null; }
+  if (geoDraft.length) geoDraftLayer = (geoDraft.length >= 3 ? L.polygon(geoDraft, { color: '#b86e00', weight: 2, dashArray: '5,5' }) : L.polyline(geoDraft, { color: '#b86e00' })).addTo(geoMap);
+  const n = (S.master.geofences || []).length;
+  $('gInfo').textContent = (geoDraft.length ? geoDraft.length + ' titik digambar untuk ' + $('gArea').value + '. ' : '') + n + ' area sudah punya batas di peta.';
+}
+function geoUndo() { geoDraft.pop(); drawDraft(); }
+function geoClear() { geoDraft = []; drawDraft(); }
+async function geoSaveArea() {
+  const area = $('gArea').value;
+  if (geoDraft.length < 3) { toast('Klik minimal 3 titik di peta', true); return; }
+  try {
+    await api('geoSave', { area: area, poly: geoDraft });
+    S.master.geofences = (S.master.geofences || []).filter(g => g.area.toUpperCase() !== area.toUpperCase()).concat([{ area: area, poly: geoDraft.slice() }]);
+    geoDraft = []; toast('Batas area ' + area + ' tersimpan'); renderGeo();
+  } catch (e) { toast(e.message, true); }
+}
+async function geoDeleteArea() {
+  const area = $('gArea').value;
+  if (!confirm('Hapus batas peta untuk area ' + area + '?')) return;
+  try {
+    await api('geoSave', { area: area, poly: [] });
+    S.master.geofences = (S.master.geofences || []).filter(g => g.area.toUpperCase() !== area.toUpperCase());
+    toast('Batas area dihapus'); renderGeo();
+  } catch (e) { toast(e.message, true); }
+}
+
 /* =================== ADMIN: ABSEN & OT =================== */
 ['aMonth', 'aDriver', 'aStatus'].forEach(id => $(id).addEventListener('change', () => renderAtt(id !== 'aMonth')));
 const hm = s => s ? s.slice(11, 16) : '—';
@@ -1046,8 +1262,7 @@ function tripCard(b, action) {
     '<div class="r">' + esc(b.pickup) + ' → ' + esc(b.dropoff) + '</div>' +
     '<div class="small">' + esc(b.guest) + (b.company ? ' · <span class="muted">' + esc(b.company) + '</span>' : '') + '</div>' +
     '<div class="small muted">' + [b.trip, b.car, b.flight ? 'Flight ' + b.flight : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
-    (b.jobPhoto && /^https?:/.test(b.jobPhoto) ? '<a class="joblink" href="' + esc(b.jobPhoto) + '" target="_blank" rel="noopener">Foto job done terkirim</a>' : '') +
-    (action && !canc && !b.finishedAt ? '<button class="btn" onclick="finishTrip(\'' + b.id + '\', this)">Selesai trip + foto</button>' : '') + '</div>';
+    (action && !canc && !b.finishedAt ? '<button class="btn" onclick="finishTrip(\'' + b.id + '\', this)">Selesai trip</button>' : '') + '</div>';
 }
 
 function locLine(addr, coords) {
@@ -1059,7 +1274,7 @@ function locLine(addr, coords) {
 /* ---------- kamera: scan wajah saat clock in / clock out ---------- */
 let camStream = null, camResolve = null;
 let camMode = 'selfie';
-// mode 'selfie' = kamera depan + panduan wajah (absen); 'scene' = kamera belakang (foto job done)
+// mode 'selfie' = kamera depan + panduan wajah (absen)
 function camOpen(title, mode) {
   camMode = mode || 'selfie';
   return new Promise(async resolve => {
@@ -1135,15 +1350,14 @@ async function doClock(kind) {
   } catch (e) { toast(e.message, true); renderDHome(); }
 }
 async function finishTrip(id, btn) {
-  const photo = await camOpen('Foto job done — foto penumpang turun / lokasi drop off', 'scene');
-  if (!photo) { toast('Belum selesai — foto job done wajib'); return; }
-  btn.disabled = true; btn.textContent = 'Mengirim foto…';
+  if (!confirm('Tandai trip ini selesai?')) return;
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
   try {
-    const r = await api('finish', { id: id, photo: photo });
-    const b = S.dh.bookings.find(x => x.id === id); if (b) { b.finishedAt = r.finishedAt; b.depart = 'DONE'; b.jobPhoto = r.jobPhoto; }
-    toast('Trip selesai ' + r.finishedAt.slice(11) + ' · foto terkirim');
+    const r = await api('finish', { id: id });
+    const b = S.dh.bookings.find(x => x.id === id); if (b) { b.finishedAt = r.finishedAt; b.depart = 'DONE'; }
+    toast('Trip selesai ' + r.finishedAt.slice(11));
     renderDHome(); driverRefresh();
-  } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Selesai trip + foto'; }
+  } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Selesai trip'; }
 }
 
 $('hMonth').addEventListener('change', () => renderHist());
