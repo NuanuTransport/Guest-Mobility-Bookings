@@ -45,6 +45,7 @@
   .chip.PENDING{background:var(--amber-soft);color:var(--amber)}
   .chip.DONE{background:var(--brand-soft);color:var(--brand)}
   .chip.CANCELLED{background:var(--red-soft);color:var(--red)}
+  .chip.STAFF{background:var(--blue-soft);color:var(--blue);margin-left:4px}
   .muted{color:var(--muted)}
   .small{font-size:12px}
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
@@ -153,7 +154,8 @@
         <div class="grid">
           <div><label>Area harga (Taxi Price List)</label><select id="fArea"></select></div>
           <div><label>Penumpang</label>
-            <select id="fPax"><option value="customer">Customer / Guest</option><option value="employee">Employee / Staff Nuanu</option></select></div>
+            <select id="fPax"><option value="CUSTOMER">Customer / Guest</option><option value="EMPLOYEE">Employee / Staff Nuanu</option></select>
+            <div class="small muted" id="fPaxHint" style="margin-top:4px"></div></div>
           <div><label>Charges (Rp)</label><input id="fCharges" inputmode="numeric"></div>
           <div style="display:flex;align-items:end"><button class="btn ghost" type="button" onclick="applyPrice(true)">Hitung ulang</button></div>
         </div>
@@ -245,7 +247,7 @@
 
 <script>
 /* ====== GANTI DENGAN URL WEB APP APPS SCRIPT ====== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxmxnet_lGKswbLuhjnVO-kiOvx214cXZNuNgd0pr7xm6kfYtX4p1FV9usyqifVGwU/exec';
+const API_URL = 'PASTE_URL_WEB_APP_DI_SINI';
 /* ================================================== */
 
 const S = { pin: '', master: null, rows: [], range: null, lastId: null };
@@ -365,7 +367,7 @@ async function renderList(noFetch) {
     const s = r.depart || 'PENDING';
     return '<tr>' +
       '<td><b>' + esc(r.time) + '</b>' + (r.flight ? '<div class="small muted">' + esc(r.flight) + '</div>' : '') + '</td>' +
-      '<td><b>' + esc(r.guest) + '</b><div class="small muted">' + esc(r.company) + '</div></td>' +
+      '<td><b>' + esc(r.guest) + '</b>' + (r.paxType === 'EMPLOYEE' ? '<span class="chip STAFF">STAFF</span>' : '') + '<div class="small muted">' + esc(r.company) + '</div></td>' +
       '<td>' + esc(r.pickup) + '<div class="small muted">→ ' + esc(r.dropoff) + '</div></td>' +
       '<td class="hide-sm">' + esc(r.trip) + '<div class="small muted">' + esc(r.car) + '</div></td>' +
       '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') + '</td>' +
@@ -397,16 +399,16 @@ async function setStatus(id, status) {
 const FORM = { date: 'fDate', time: 'fTime', guest: 'fGuest', company: 'fCompany', flight: 'fFlight', pickup: 'fPickup',
   dropoff: 'fDropoff', trip: 'fTrip', car: 'fCar', driver: 'fDriver', driverType: 'fDriverType', depart: 'fDepart',
   payment: 'fPayment', payStatus: 'fPayStatus', charges: 'fCharges', purpose: 'fPurpose', invStatus: 'fInvStatus',
-  invNo: 'fInvNo', soNo: 'fSoNo' };
+  invNo: 'fInvNo', soNo: 'fSoNo', paxType: 'fPax' };
 
 function resetForm() {
   Object.values(FORM).forEach(id => { const el = $(id); el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
   $('fId').value = ''; $('fDate').value = $('lDate').value || today(); $('fCar').value = 'BYD';
-  $('fArea').value = ''; $('fPax').value = 'customer';
+  $('fArea').value = ''; $('fPax').value = 'CUSTOMER'; $('fPaxHint').textContent = '';
   $('fTitle').textContent = 'Booking Baru'; $('fSave').textContent = 'Simpan Booking';
   $('fDelete').classList.add('hidden'); $('fClash').classList.add('hidden');
   $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.';
-  S.chargesTouched = false;
+  S.chargesTouched = false; S.paxTouched = false;
 }
 
 function fillForm(r, asCopy) {
@@ -417,6 +419,8 @@ function fillForm(r, asCopy) {
   else { $('fId').value = r.id; $('fTitle').textContent = 'Edit Booking ' + r.id; $('fSave').textContent = 'Simpan Perubahan'; $('fDelete').classList.remove('hidden'); }
   $('fCharges').value = r.charges || '';
   S.chargesTouched = true;
+  if (r.paxType === 'EMPLOYEE' || r.paxType === 'CUSTOMER') { $('fPax').value = r.paxType; S.paxTouched = true; $('fPaxHint').textContent = ''; }
+  else { $('fPax').value = 'CUSTOMER'; guessPax(); }
   guessArea();
   checkClash();
 }
@@ -424,6 +428,26 @@ function editBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) retu
 function copyBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) return; showTab('form'); fillForm(r, true); toast('Data disalin — ganti tanggal/jam'); }
 
 $('fCharges').addEventListener('input', () => { S.chargesTouched = true; });
+$('fPax').addEventListener('change', () => { S.paxTouched = true; $('fPaxHint').textContent = ''; });
+$('fGuest').addEventListener('change', () => { guessPax(); applyPrice(false); });
+
+/* Tebak Customer / Employee:
+   1) nama tamu pernah disimpan sebagai EMPLOYEE (kolom U PASSENGER TYPE)
+   2) ada kata STAFF / EMPLOYEE / KARYAWAN / CREW di nama
+   3) selain itu Customer */
+function guestName(v) {
+  const parts = String(v || '').toUpperCase().trim().split(/\s+-\s+/);
+  return parts[parts.length - 1].replace(/^(MR|MRS|MS|MISS|BAPAK|BPK|IBU|PAK|BU)\.?\s+/, '').trim();
+}
+function guessPax() {
+  if (S.paxTouched || !S.master) return;
+  const raw = $('fGuest').value.toUpperCase(), g = guestName(raw);
+  let pax = 'CUSTOMER', why = '';
+  if (g && (S.master.lists.employees || []).indexOf(g) >= 0) { pax = 'EMPLOYEE'; why = 'Terdeteksi staff: ' + g + ' pernah dicatat sebagai Employee.'; }
+  else if (/\b(STAFF|EMPLOYEE|KARYAWAN|CREW)\b/.test(raw)) { pax = 'EMPLOYEE'; why = 'Terdeteksi staff dari kata di nama.'; }
+  $('fPax').value = pax;
+  $('fPaxHint').textContent = why || (g ? 'Otomatis: Customer. Ganti ke Employee kalau penumpangnya staff.' : '');
+}
 ['fArea', 'fPax', 'fTrip', 'fCar', 'fCompany'].forEach(id => $(id).addEventListener('change', () => applyPrice(false)));
 ['fDropoff', 'fPickup'].forEach(id => $(id).addEventListener('change', () => { if ($('fArea').value === '') { guessArea(); applyPrice(false); } }));
 ['fDriver', 'fDate', 'fTime'].forEach(id => $(id).addEventListener('change', checkClash));
@@ -469,7 +493,7 @@ function calcPrice() {
   if (/ROUND/.test(trip) && !/hour/i.test(p.area)) { base = base * 2; notes.push('Round trip = 2 × harga single.'); }
   if (rentTrip && !/hour/i.test(p.area)) notes.push('Trip RENT tapi area bukan paket jam — pilih area "x Hour Rent".');
 
-  const pax = $('fPax').value;
+  const pax = $('fPax').value.toLowerCase();
   const company = $('fCompany').value;
   const rule = findRule(company);
   let final = base, ruleTxt = 'Harga normal (tidak ada aturan khusus untuk company ini).';
@@ -604,6 +628,12 @@ async function renderDash() {
   const maxD = drv.length ? drv[0][1] : 1;
   $('dDriver').innerHTML = drv.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td style="width:50%"><div class="bar"><i style="width:' + (v / maxD * 100) + '%"></i></div></td><td class="num">' + v + ' trip</td></tr>').join('') || '<tr><td class="muted">Belum ada data.</td></tr>';
 }
+
+/* ---------- auto refresh (status Auto DONE dari server) ---------- */
+setInterval(() => {
+  if ($('appView').classList.contains('hidden') || currentTab() !== 'list' || document.hidden) return;
+  S.range = null; renderList();
+}, 5 * 60 * 1000);
 
 /* ---------- auto login ---------- */
 try { const p = sessionStorage.getItem('taxiPin'); if (p) { $('pinInput').value = p; login(); } } catch (e) {}
