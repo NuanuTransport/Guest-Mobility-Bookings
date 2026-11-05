@@ -81,6 +81,16 @@
   .tpl{background:#f6f8f5;border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;margin:10px 0}
   .standby{background:var(--blue-soft);color:var(--blue);border-radius:12px;padding:16px;text-align:center;font-weight:600;line-height:1.5}
   .standby b{display:block;font-size:17px;margin-top:4px}
+  #lBody tr{cursor:pointer}
+  #lBody tr:hover td{background:#fafbf9}
+  .trip{cursor:pointer}
+  .dmodal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:45;display:flex;align-items:center;justify-content:center;padding:12px}
+  .dbox{background:#fff;border-radius:14px;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:18px}
+  .dbox h3{margin:0 0 2px;font-size:18px}
+  .dl{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;margin:14px 0;font-size:14px}
+  .dl dt{color:var(--muted);font-weight:600;font-size:12px;padding-top:2px}
+  .dl dd{margin:0;word-break:break-word}
+  .dl a{color:var(--brand);font-weight:600}
   .inwrap{display:flex;gap:6px}
   .inwrap input{flex:1;min-width:0}
   .inwrap .btn{padding:9px 10px;white-space:nowrap}
@@ -348,6 +358,18 @@
       <p class="daylbl">Riwayat booking</p>
       <div id="hTrips"></div>
     </section>
+  </div>
+</div>
+
+<!-- DETAIL BOOKING -->
+<div id="detModal" class="dmodal hidden" onclick="if(event.target===this)closeDetail()">
+  <div class="dbox">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><h3 id="detTitle"></h3><div class="small muted" id="detSub"></div></div>
+      <span id="detChip"></span>
+    </div>
+    <dl class="dl" id="detBody"></dl>
+    <div class="row" id="detActs"></div>
   </div>
 </div>
 
@@ -624,10 +646,10 @@ async function renderList(noFetch) {
 
   $('lBody').innerHTML = rows.length ? rows.map(r => {
     const s = r.depart || 'PENDING';
-    return '<tr>' +
+    return '<tr onclick="if(!event.target.closest(\'button,a\'))showDetail(\'' + r.id + '\',\'admin\')">' +
       '<td><b>' + esc(r.time) + '</b>' + (r.flight ? '<div class="small muted">' + esc(r.flight) + '</div>' : '') + '</td>' +
       '<td><b>' + esc(r.guest) + '</b>' + (r.paxType === 'EMPLOYEE' ? '<span class="chip STAFF">STAFF</span>' : '') + '<div class="small muted">' + esc(r.company) + '</div></td>' +
-      '<td>' + esc(r.pickup) + '<div class="small muted">→ ' + esc(r.dropoff) + '</div></td>' +
+      '<td>' + placeTxt(r.pickup) + '<div class="small muted">→ ' + placeTxt(r.dropoff) + '</div></td>' +
       '<td class="hide-sm">' + esc(r.trip) + '<div class="small muted">' + esc(r.car) + '</div></td>' +
       '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') + '</td>' +
       '<td class="num">' + (r.charges ? rp(r.charges) : '<span class="muted">—</span>') + '<div class="small muted">' + esc(r.payment) + '</div></td>' +
@@ -1057,6 +1079,74 @@ async function renderDash() {
 
 
 
+
+/* =================== DETAIL BOOKING (klik baris / kartu) =================== */
+/* nama lokasi untuk daftar/kartu: link Maps ditampilkan pendek */
+function placeTxt(t) {
+  return /^https?:/i.test(String(t || '')) ? '<a href="' + esc(t) + '" target="_blank" rel="noopener">Link Maps</a>' : esc(t);
+}
+function mapsHref(txt) {
+  const t = String(txt || '').trim();
+  if (!t) return '';
+  return /^https?:/i.test(t) ? t : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t + (/bali/i.test(t) ? '' : ', Bali'));
+}
+function findBooking(id, mode) {
+  if (mode === 'driver') {
+    const pools = [S.dh && S.dh.bookings, S.hist && S.hist.bookings].filter(Boolean);
+    for (const p of pools) { const b = p.find(x => x.id === id); if (b) return b; }
+    return null;
+  }
+  return S.rows.find(x => x.id === id) || null;
+}
+function showDetail(id, mode) {
+  const b = findBooking(id, mode); if (!b) return;
+  const parts = String(b.guest || '').split(/\s+-\s+/).map(x => x.trim()).filter(Boolean);
+  const st = b.depart || 'PENDING';
+  const tripLbl = { SINGEL: 'Single', ROUND: 'Round trip (PP)' }[b.trip] || b.trip;
+  const loc = t => t ? '<a href="' + esc(mapsHref(t)) + '" target="_blank" rel="noopener">' + esc(/^https?:/i.test(t) ? 'Buka link Maps' : t) + '</a>' : '—';
+  const wa = b.wa ? '<a href="https://wa.me/' + esc(String(b.wa).replace(/\D/g, '').replace(/^0/, '62')) + '" target="_blank" rel="noopener">' + esc(b.wa) + '</a>' : '';
+  const rows = [
+    ['Tanggal', b.date ? new Date(b.date + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''],
+    ['Jam pick up', esc(b.time)],
+    ['Req by', esc(parts[0] || '')],
+    ['Guest', esc(parts.length > 1 ? parts.slice(1).join(' - ') : (parts[0] || '')) + (b.paxType === 'EMPLOYEE' ? ' <span class="chip STAFF">STAFF</span>' : '')],
+    ['WA', wa],
+    ['Company', esc(b.company)],
+    ['Flight', esc(b.flight)],
+    ['Pick up', loc(b.pickup)],
+    ['Drop off', loc(b.dropoff)],
+    ['Trip', esc(tripLbl)],
+    ['Mobil', esc(b.car)],
+    ['Driver', esc(b.driver && b.driver !== 'CANCELLED' ? b.driver + (b.driverType ? ' (' + b.driverType + ')' : '') : '')],
+    ['Selesai', esc(b.finishedAt ? b.finishedAt.slice(11) + ' · ' + fmtDate(b.finishedAt.slice(0, 10)) : '')],
+    ['Note', esc(b.purpose)]
+  ];
+  if (mode === 'admin') rows.push(
+    ['Payment', esc(b.payment)],
+    ['Charges', b.charges ? '<b>' + rp(b.charges) + '</b>' : ''],
+    ['Status bayar', esc(b.payStatus)],
+    ['Invoice', esc([b.invStatus, b.invNo].filter(Boolean).join(' · '))],
+    ['No SO', esc(b.soNo)],
+    ['Booking ID', '<span class="small muted">' + esc(b.id) + '</span>']
+  );
+  $('detTitle').textContent = (b.time || '--:--') + ' · ' + (b.pickup && !/^https?:/i.test(b.pickup) ? b.pickup : 'Pick up') + ' → ' + (b.dropoff && !/^https?:/i.test(b.dropoff) ? b.dropoff : 'Drop off');
+  $('detSub').textContent = b.guest || '';
+  $('detChip').innerHTML = '<span class="chip ' + st + '">' + st + '</span>';
+  $('detBody').innerHTML = rows.filter(r => r[1]).map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+  const acts = [];
+  if (mode === 'admin') {
+    acts.push('<button class="btn" onclick="closeDetail();editBooking(\'' + b.id + '\')">Edit</button>');
+    acts.push('<button class="btn ghost" onclick="closeDetail();tplFromList(\'' + b.id + '\')">Template WA</button>');
+  } else if (st !== 'CANCELLED' && !b.finishedAt && S.dh && b.date <= S.dh.today) {
+    acts.push('<button class="btn" onclick="closeDetail();finishTrip(\'' + b.id + '\', this)">Selesai trip</button>');
+  }
+  acts.push('<button class="btn ghost" onclick="closeDetail()">Tutup</button>');
+  $('detActs').innerHTML = acts.join('');
+  $('detModal').classList.remove('hidden');
+}
+function closeDetail() { $('detModal').classList.add('hidden'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
 /* =================== PETA: PILIH LOKASI & GEOFENCE =================== */
 const NUANU_LL = [-8.6365, 115.0878];
 const TILE = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -1396,10 +1486,10 @@ function renderTmr() {
 
 function tripCard(b, action) {
   const canc = b.depart === 'CANCELLED';
-  return '<div class="trip"' + (canc ? ' style="opacity:.55"' : '') + '><div class="row" style="justify-content:space-between;align-items:center">' +
+  return '<div class="trip"' + (canc ? ' style="opacity:.55"' : '') + ' onclick="if(!event.target.closest(\'button,a\'))showDetail(\'' + b.id + '\',\'driver\')"><div class="row" style="justify-content:space-between;align-items:center">' +
     '<span class="t">' + esc(b.time || '--:--') + '</span>' +
     (canc ? '<span class="chip CANCELLED">CANCELLED</span>' : b.finishedAt ? '<span class="chip FIN">SELESAI ' + esc(b.finishedAt.slice(11)) + '</span>' : (S.dh && b.date > S.dh.today) ? '<span class="chip BERJALAN">TERJADWAL</span>' : '<span class="chip PENDING">BELUM SELESAI</span>') + '</div>' +
-    '<div class="r">' + esc(b.pickup) + ' → ' + esc(b.dropoff) + '</div>' +
+    '<div class="r">' + placeTxt(b.pickup) + ' → ' + placeTxt(b.dropoff) + '</div>' +
     '<div class="small">' + esc(b.guest) + (b.company ? ' · <span class="muted">' + esc(b.company) + '</span>' : '') + '</div>' +
     (b.wa ? '<div class="small">WA: <a href="https://wa.me/' + esc(String(b.wa).replace(/\D/g, '').replace(/^0/, '62')) + '" target="_blank" rel="noopener">' + esc(b.wa) + '</a></div>' : '') +
     '<div class="small muted">' + [b.trip, b.car, b.flight ? 'Flight ' + b.flight : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
@@ -1506,6 +1596,7 @@ async function renderHist(silent) {
   if (!silent) $('hTrips').innerHTML = '<div class="card muted">Memuat…</div>';
   try {
     const h = await api('dhistory', { month: $('hMonth').value || today().slice(0, 7) });
+    S.hist = h;
     const fin = h.bookings.filter(b => b.finishedAt || b.depart === 'DONE');
     const appr = h.att.filter(a => a.otStatus === 'APPROVED'), pend = h.att.filter(a => a.otStatus === 'PENDING');
     $('hStats').innerHTML = stat('Trip selesai', fin.length) + stat('Hari absen', h.att.length) +
