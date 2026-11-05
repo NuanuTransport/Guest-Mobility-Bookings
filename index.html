@@ -965,8 +965,9 @@ async function renderAtt(keep) {
       '<td class="small">' + esc(flags.concat(r.note && !/Lupa clock out|luar area/.test(r.note) ? [r.note] : []).join(' · ')) +
         (r.inAddr ? '<div class="muted" title="Lokasi clock in">In: ' + esc(r.inAddr) + '</div>' : '') +
         (r.outAddr ? '<div class="muted" title="Lokasi clock out">Out: ' + esc(r.outAddr) + '</div>' : '') +
-        '<div>' + (r.inPhoto ? '<a href="' + esc(r.inPhoto) + '" target="_blank" rel="noopener">Foto in</a>' : '') +
-        (r.outPhoto ? (r.inPhoto ? ' · ' : '') + '<a href="' + esc(r.outPhoto) + '" target="_blank" rel="noopener">Foto out</a>' : '') + '</div></td>' +
+        '<div>' + [['Foto in', r.inPhoto], ['Foto out', r.outPhoto]].filter(x => x[1]).map(x => /^https?:/.test(x[1])
+          ? '<a href="' + esc(x[1]) + '" target="_blank" rel="noopener">' + x[0] + '</a>'
+          : '<span style="color:var(--red)">' + x[0] + ' gagal tersimpan</span>').join(' · ') + '</div></td>' +
       '<td><div class="acts">' + (canAct ? '<button class="btn sm" onclick="otApprove(\'' + r.id + '\')">' + (r.otStatus === 'APPROVED' ? 'Update' : 'Approve') + '</button>' +
         (r.otStatus !== 'REJECTED' && r.otStatus !== 'NO OT' ? '<button class="btn sm red" onclick="otReject(\'' + r.id + '\')">Reject</button>' : '') : '') + '</div></td></tr>';
   }).join('') : '<tr><td colspan="10" class="muted">Tidak ada data absen.</td></tr>';
