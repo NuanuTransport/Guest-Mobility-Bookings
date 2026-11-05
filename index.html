@@ -190,8 +190,8 @@
           <div><label>Req By - Guest Name *</label><input id="fGuest" placeholder="SUKMA - MR JOHN"></div>
           <div><label>Company *</label><select id="fCompany"></select></div>
           <div><label>Details Flight</label><input id="fFlight" placeholder="QR960"></div>
-          <div><label>Pick Up *</label><div class="inwrap"><input id="fPickup" list="dlDest" placeholder="Ketik / pilih dari list"><button type="button" class="btn ghost" onclick="openPicker('pickup')">Peta</button></div><div class="areatag" id="tagPickup"></div></div>
-          <div><label>Drop Off * (destination)</label><div class="inwrap"><input id="fDropoff" list="dlDest" placeholder="Ketik / pilih dari list"><button type="button" class="btn ghost" onclick="openPicker('dropoff')">Peta</button></div><div class="areatag" id="tagDropoff"></div></div>
+          <div><label>Pick Up *</label><div class="inwrap"><input id="fPickup" list="dlDest" placeholder="Ketik, pilih list, atau paste link Maps"><button type="button" class="btn ghost" onclick="openPicker('pickup')">Peta</button></div><div class="areatag" id="tagPickup"></div></div>
+          <div><label>Drop Off * (destination)</label><div class="inwrap"><input id="fDropoff" list="dlDest" placeholder="Ketik, pilih list, atau paste link Maps"><button type="button" class="btn ghost" onclick="openPicker('dropoff')">Peta</button></div><div class="areatag" id="tagDropoff"></div></div>
           <div><label>Trip</label>
             <select id="fTrip">
               <option value="SINGEL">SINGLE (1× harga)</option><option value="ROUND">ROUND / pulang pergi (2× harga)</option>
@@ -702,6 +702,7 @@ $('fWait').addEventListener('input', () => applyPrice(false));
 // Harga otomatis: begitu destination / pick up / trip diisi, area & harga langsung dihitung
 ['fDropoff', 'fPickup'].forEach(id => ['input', 'change'].forEach(ev => $(id).addEventListener(ev, () => {
   const k = id === 'fPickup' ? 'pickup' : 'dropoff';
+  if (MAPS_LINK.test($(id).value.trim())) { resolveLink(k, $(id).value.trim()); return; }   // link Google Maps di-paste
   if (ev === 'input' && S.loc[k]) { S.loc[k] = null; setTag(k); }     // diketik ulang → lokasi peta dilepas
   autoArea();
 })));
@@ -1000,10 +1001,32 @@ function areaForPoint(lat, lng, names) {
   for (const n of (names || [])) { const i = matchArea(n); if (i >= 0) return { idx: i, how: 'wilayah ' + n }; }
   return { idx: -1, how: '' };
 }
+/* Link Google Maps yang di-paste (maps.app.goo.gl/..., google.com/maps/...) → koordinat → area harga */
+const MAPS_LINK = /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)/i;
+async function resolveLink(k, url) {
+  if (S.linkBusy === url) return;
+  S.linkBusy = url;
+  const field = $(k === 'pickup' ? 'fPickup' : 'fDropoff');
+  const tag = $(k === 'pickup' ? 'tagPickup' : 'tagDropoff');
+  tag.textContent = 'Membaca link Google Maps…';
+  try {
+    const r = await api('mapslink', { url: url });
+    if (field.value.trim() !== url) return;                   // sudah diganti user
+    const a = areaForPoint(r.lat, r.lng, r.names);
+    S.loc[k] = { lat: r.lat, lng: r.lng, address: r.address, names: r.names, idx: a.idx, how: a.how };
+    field.value = r.label ? r.label.toUpperCase() : shortName(r.address);
+    setTag(k);
+    S.areaManual = false; autoArea();
+  } catch (e) {
+    tag.textContent = e.message;
+    toast(e.message, true);
+  } finally { S.linkBusy = ''; }
+}
+
 function setTag(k) {
   const el = $(k === 'pickup' ? 'tagPickup' : 'tagDropoff'); if (!el) return;
   const L = S.loc && S.loc[k];
-  el.textContent = !L ? '' : (L.idx >= 0 ? 'Peta → area ' + S.master.prices[L.idx].area + ' (' + L.how + ')' : 'Peta → area tidak dikenali, pilih area harga manual');
+  el.textContent = !L ? '' : (L.idx >= 0 ? 'Lokasi → area ' + S.master.prices[L.idx].area + ' (' + L.how + ')' : 'Lokasi → area tidak dikenali, pilih area harga manual');
 }
 
 let pickMap = null, pickMarker = null, pickPolys = null, pickFor = '', picked = null;
