@@ -140,6 +140,7 @@
             <select id="fTrip">
               <option value="SINGEL">SINGLE (1× harga)</option><option value="ROUND">ROUND / pulang pergi (2× harga)</option>
               <option>RENT 4 HOURS</option><option>RENT 6 HOURS</option><option>RENT 8 HOURS</option><option>RENT 12 HOURS</option>
+              <option value="EMERGENCY">EMERGENCY (taxi emergency)</option>
             </select></div>
           <div><label>Car Type</label><select id="fCar"><option value="BYD">BYD</option><option value="ALPHARD">ALPHARD</option></select></div>
         </div>
@@ -223,7 +224,7 @@ const PAY_COMPANY = ['PT. Eden Restaurant (Luna)', 'Public Relation (PR)', 'Bran
   'Yayasan Nuanu Junior Angel (Kids Academy)', 'PT Pacha Alpaca Project', 'PT Bedogoel Residence and Resort (Handara)',
   'PT Eugene Nuanu Indonesia', 'PT Unit Nuanu Property', 'PT Unit Space Management',
   'PT Wooden Fish Management (Nuanu Social Fund, Operational)', 'PT Wooden Fish Village (Legal)',
-  'Nuanu Event', 'Nuanu Experience', 'Environmental', 'PT Baza Origins Bali', 'PT Sol Studio Bali',
+  'Nuanu Event', 'Nuanu Experience', 'Environmental', 'Service and Medic Support', 'PT Baza Origins Bali', 'PT Sol Studio Bali',
   'PT Bali Baza Development', 'PT Oshom Bali Group (Oshom)', 'PT Harmony Health Wellness (Lumeira)'];
 // Payment otomatis saat company dipilih (boleh diganti manual)
 const PAY_BY_COMPANY = {
@@ -243,21 +244,24 @@ const PAY_BY_COMPANY = {
   'LEGAL': 'PT Wooden Fish Village (Legal)',
   'NUANU EVENT': 'Nuanu Event',
   'NUANU EXPERIENCE': 'Nuanu Experience',
-  'ENVIRONMENTAL': 'Environmental'
+  'ENVIRONMENTAL': 'Environmental',
+  'SERVICE AND MEDIC SUPPORT': 'Service and Medic Support'
 };
 // Nama company → nama Business Partner di tab LIST WO dan DIRECT PAYMENT
 const RULE_ALIAS = {
   'NUANU REAL ESTATE': 'NRE',
   'NUANU ACCOMMODATION': 'ACCOMODATION',
-  'LUNA BEACH CLUB': 'LUNA',
-  'SERVICE AND MEDIC SUPPORT': 'EMERGENCY'
+  'LUNA BEACH CLUB': 'LUNA'
 };
 // Selalu harga normal (customer maupun employee)
-const NORMAL_PRICE = ['SOL STUDIO', 'LABYRINTH', 'BIOM', 'PROED GLOBAL SCHOOL', 'EDEN UBUD'];
+const NORMAL_PRICE = ['SOL STUDIO', 'LABYRINTH', 'BIOM', 'PROED GLOBAL SCHOOL', 'EDEN UBUD', 'SERVICE AND MEDIC SUPPORT'];
 // Agreement flat bulanan → charges per trip = 0, ditagih bulanan
 const MONTHLY_FLAT = { 'HANDARA': 18000000 };
-// Waiting fee Emergency (Service and Medic Support) — hanya untuk Staff, per 1 jam
-const WAITING_PER_HOUR = 50000;
+// TAXI EMERGENCY (Trip = EMERGENCY), berlaku untuk company mana pun maupun personal.
+// Angka diambil dari baris "Emergency" di tab LIST WO dan DIRECT PAYMENT; ini cadangan kalau tidak terbaca.
+const EMERGENCY_CUSTOMER = 200000;   // guest/customer: flat, tanpa waiting
+const EMERGENCY_STAFF = 160000;      // staff: flat + waiting fee
+const WAITING_PER_HOUR = 50000;      // waiting fee staff per 1 jam
 // Department internal Nuanu → pakai aturan INTERNAL REQUEST
 const INTERNAL_DEPTS = ['PUBLIC RELATIONS', 'BRAND AND COMM', 'NUANU SOCIAL FUND', 'NUANU EVENT', 'NUANU EXPERIENCE',
   'LEGAL', 'ENVIRONMENTAL', 'OPERATIONAL', 'PARATAMA GARDA MASA'];
@@ -521,20 +525,18 @@ function calcPrice() {
   const company = $('fCompany').value;
   const pax = $('fPax').value.toLowerCase();
   const rule = findRule(company);
-  const isEmergency = !!(rule && /EMERGENCY/i.test(rule.partner));
+  const isEmergency = $('fTrip').value === 'EMERGENCY';
   const canWait = isEmergency && pax === 'employee';     // waiting fee hanya untuk Staff
   $('fWaitBox').classList.toggle('hidden', !canWait);
 
-  // Agreement flat bulanan (Handara)
-  if (MONTHLY_FLAT[company]) {
-    return { base: 0, final: 0, area: company, rate: 'Agreement', notes: [],
-      ruleTxt: 'Flat ' + rp(MONTHLY_FLAT[company]) + ' per bulan sesuai agreement — charges per trip 0, ditagih bulanan.' };
-  }
-  // Emergency (Service and Medic Support), tidak butuh area:
-  //  - Customer/Guest : flat saja, tanpa waiting (drop di klinik/RS tujuan)
+  // TAXI EMERGENCY — harga sama untuk semua company / personal, tidak butuh area
+  //  - Customer/Guest : flat, tanpa waiting (drop di klinik/RS tujuan)
   //  - Staff          : flat + waiting fee per jam kalau ada
-  if (isEmergency && rule[pax].mode === 'flat' && rule[pax].amount) {
-    let fin = rule[pax].amount, notes;
+  if (isEmergency) {
+    const er = S.master.rules.find(x => /EMERGENCY/i.test(x.partner));
+    const pick = (r, dflt) => (r && r.mode === 'flat' && r.amount) ? r.amount : dflt;
+    const flat = pax === 'employee' ? pick(er && er.employee, EMERGENCY_STAFF) : pick(er && er.customer, EMERGENCY_CUSTOMER);
+    let fin = flat, notes;
     if (canWait) {
       const hrs = Number($('fWait').value) || 0;
       fin += hrs * WAITING_PER_HOUR;
@@ -542,10 +544,15 @@ function calcPrice() {
     } else {
       notes = ['Guest/customer: flat tanpa waiting (drop di klinik/RS tujuan).'];
     }
-    return { base: rule[pax].amount, final: fin, area: 'Emergency', rate: 'Flat', notes: notes,
-      ruleTxt: rule.partner.trim() + ' · ' + (pax === 'employee' ? 'Employee' : 'Customer') + ': ' + rule[pax].label };
+    return { base: flat, final: fin, area: 'Taxi Emergency', rate: 'Flat', notes: notes,
+      ruleTxt: 'Emergency · ' + (pax === 'employee' ? 'Staff' : 'Guest/Customer') + ' · ditagihkan ke ' + (company || 'pemesan') + '.' };
   }
 
+  // Agreement flat bulanan (Handara)
+  if (MONTHLY_FLAT[company]) {
+    return { base: 0, final: 0, area: company, rate: 'Agreement', notes: [],
+      ruleTxt: 'Flat ' + rp(MONTHLY_FLAT[company]) + ' per bulan sesuai agreement — charges per trip 0, ditagih bulanan.' };
+  }
   const idx = $('fArea').value;
   if (idx === '') return null;
   const p = S.master.prices[idx];
