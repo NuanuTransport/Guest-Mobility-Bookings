@@ -532,6 +532,7 @@ async function loadMaster() {
   const fill = (id, arr) => $(id).innerHTML = arr.map(v => '<option value="' + esc(v) + '">').join('');
   fill('dlDriver', L.drivers);
   buildAreas();
+  if (!S.centers) loadCenters();
   $('dlDest').innerHTML = ['NUANU'].concat(S.master.prices.filter(p => !/hour/i.test(p.area)).map(p => p.area.toUpperCase()))
     .map(v => '<option value="' + esc(v) + '">').join('');
 }
@@ -750,8 +751,10 @@ function guessArea() {
     const ad = S.loc && S.loc.dropoff ? S.loc.dropoff.idx : matchArea($('fDropoff').value);
     // harga dihitung dari titik standby Nuanu (Beraban): pakai ujung yang BUKAN area Nuanu/Beraban
     const home = x => x >= 0 && /BERABAN|NUANU/i.test(P[x].area);
+    const unknownEnd = (idx, id) => idx < 0 && $(id).value.trim() && !/NUANU|BERABAN/i.test($(id).value);
     if (ad >= 0 && !home(ad)) i = ad;
     else if (ap >= 0 && !home(ap)) i = ap;
+    else if (unknownEnd(ad, 'fDropoff') || unknownEnd(ap, 'fPickup')) i = -1;   // satu ujung belum dikenali → jangan pakai harga Beraban
     else i = ad >= 0 ? ad : ap;
   }
   $('fArea').value = i >= 0 ? i : '';
@@ -999,7 +1002,17 @@ function areaForPoint(lat, lng, names) {
   const hits = (S.master.geofences || []).filter(g => inPoly(lat, lng, g.poly)).sort((a, b) => polyArea(a.poly) - polyArea(b.poly));
   for (const g of hits) { const i = priceIdx(g.area); if (i >= 0) return { idx: i, how: 'geofence' }; }
   for (const n of (names || [])) { const i = matchArea(n); if (i >= 0) return { idx: i, how: 'wilayah ' + n }; }
-  return { idx: -1, how: '' };
+  // 3) area price list terdekat (titik tengah area dari Google Maps), maks NEAREST_KM
+  let best = -1, bestKm = 1e9;
+  const C = S.centers || {};
+  S.master.prices.forEach((p, i) => {
+    const c = C[p.area.toUpperCase().trim()];
+    if (!c || /hour|rent/i.test(p.area)) return;
+    const km = distKm(lat, lng, c[0], c[1]);
+    if (km < bestKm) { bestKm = km; best = i; }
+  });
+  if (best >= 0 && bestKm <= NEAREST_KM) return { idx: best, how: 'terdekat, ' + bestKm.toFixed(1).replace('.', ',') + ' km' };
+  return { idx: -1, how: '', names: names || [] };
 }
 /* Link Google Maps yang di-paste (maps.app.goo.gl/..., google.com/maps/...) → koordinat → area harga */
 const MAPS_LINK = /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)/i;
@@ -1023,10 +1036,20 @@ async function resolveLink(k, url) {
   } finally { S.linkBusy = ''; }
 }
 
+const NEAREST_KM = 6;   // area terdekat dipakai kalau jaraknya ≤ 6 km dari titik tengah area
+function distKm(a, b, c, d) {
+  const r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+}
+async function loadCenters() {
+  try { S.centers = await api('centers'); } catch (e) { /* tanpa titik tengah: tetap pakai geofence & nama desa */ }
+}
+
 function setTag(k) {
   const el = $(k === 'pickup' ? 'tagPickup' : 'tagDropoff'); if (!el) return;
   const L = S.loc && S.loc[k];
-  el.textContent = !L ? '' : (L.idx >= 0 ? 'Lokasi → area ' + S.master.prices[L.idx].area + ' (' + L.how + ')' : 'Lokasi → area tidak dikenali, pilih area harga manual');
+  el.textContent = !L ? '' : (L.idx >= 0 ? 'Lokasi → area ' + S.master.prices[L.idx].area + ' (' + L.how + ')'
+    : 'Lokasi ' + ((L.names || []).slice(0, 3).join(', ') || '') + ' → belum masuk area price list. Pilih area harga manual atau gambar batasnya di Area Peta');
 }
 
 let pickMap = null, pickMarker = null, pickPolys = null, pickFor = '', picked = null;
