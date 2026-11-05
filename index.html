@@ -79,7 +79,10 @@
   .loc{margin-top:8px;font-size:13px;color:var(--muted);line-height:1.4}
   .loc b{color:var(--ink);font-weight:600}
   .cam{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column}
-  .cam video{flex:1;width:100%;object-fit:cover;transform:scaleX(-1);min-height:0}
+  .cam video{flex:1;width:100%;object-fit:cover;min-height:0}
+  .cam.selfie video{transform:scaleX(-1)}
+  .cam.scene .oval{display:none}
+  .joblink{display:inline-block;margin-top:6px;font-size:12px;font-weight:600;color:var(--brand)}
   .cam .oval{position:absolute;left:50%;top:42%;width:62vw;max-width:280px;aspect-ratio:3/4;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,.45);pointer-events:none}
   .cam .camtxt{position:absolute;left:0;right:0;top:18px;text-align:center;color:#fff;font-weight:600;padding:0 16px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
   .cam .cambar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px 28px;background:#000}
@@ -295,7 +298,7 @@
 </div>
 
 <!-- KAMERA ABSEN -->
-<div id="camModal" class="cam hidden">
+<div id="camModal" class="cam selfie hidden">
   <video id="camVideo" playsinline autoplay muted></video>
   <div class="oval"></div>
   <div class="camtxt" id="camTxt">Posisikan wajah di dalam lingkaran</div>
@@ -553,7 +556,8 @@ async function renderList(noFetch) {
       '<td class="hide-sm">' + esc(r.trip) + '<div class="small muted">' + esc(r.car) + '</div></td>' +
       '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') + '</td>' +
       '<td class="num">' + (r.charges ? rp(r.charges) : '<span class="muted">—</span>') + '<div class="small muted">' + esc(r.payment) + '</div></td>' +
-      '<td><span class="chip ' + s + '">' + s + '</span>' + (r.finishedAt ? '<div class="small muted">Selesai ' + esc(r.finishedAt.slice(11)) + '</div>' : '') + '</td>' +
+      '<td><span class="chip ' + s + '">' + s + '</span>' + (r.finishedAt ? '<div class="small muted">Selesai ' + esc(r.finishedAt.slice(11)) + '</div>' : '') +
+        (r.jobPhoto ? (/^https?:/.test(r.jobPhoto) ? '<a class="joblink" href="' + esc(r.jobPhoto) + '" target="_blank" rel="noopener">Foto job</a>' : '<div class="small" style="color:var(--red)">Foto gagal</div>') : '') + '</td>' +
       '<td><div class="acts">' +
         (s !== 'DONE' ? '<button class="btn sm" onclick="setStatus(\'' + r.id + '\',\'DONE\')">Done</button>' : '') +
         (s !== 'CANCELLED' ? '<button class="btn sm red" onclick="setStatus(\'' + r.id + '\',\'CANCELLED\')">Cancel</button>' : '') +
@@ -1042,7 +1046,8 @@ function tripCard(b, action) {
     '<div class="r">' + esc(b.pickup) + ' → ' + esc(b.dropoff) + '</div>' +
     '<div class="small">' + esc(b.guest) + (b.company ? ' · <span class="muted">' + esc(b.company) + '</span>' : '') + '</div>' +
     '<div class="small muted">' + [b.trip, b.car, b.flight ? 'Flight ' + b.flight : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
-    (action && !canc && !b.finishedAt ? '<button class="btn" onclick="finishTrip(\'' + b.id + '\', this)">Selesai trip</button>' : '') + '</div>';
+    (b.jobPhoto && /^https?:/.test(b.jobPhoto) ? '<a class="joblink" href="' + esc(b.jobPhoto) + '" target="_blank" rel="noopener">Foto job done terkirim</a>' : '') +
+    (action && !canc && !b.finishedAt ? '<button class="btn" onclick="finishTrip(\'' + b.id + '\', this)">Selesai trip + foto</button>' : '') + '</div>';
 }
 
 function locLine(addr, coords) {
@@ -1053,14 +1058,19 @@ function locLine(addr, coords) {
 
 /* ---------- kamera: scan wajah saat clock in / clock out ---------- */
 let camStream = null, camResolve = null;
-function camOpen(title) {
+let camMode = 'selfie';
+// mode 'selfie' = kamera depan + panduan wajah (absen); 'scene' = kamera belakang (foto job done)
+function camOpen(title, mode) {
+  camMode = mode || 'selfie';
   return new Promise(async resolve => {
     camResolve = resolve;
-    $('camTxt').textContent = title + ' — posisikan wajah di dalam lingkaran lalu tekan tombol';
+    $('camModal').className = 'cam ' + camMode;
+    $('camFile').setAttribute('capture', camMode === 'selfie' ? 'user' : 'environment');
+    $('camTxt').textContent = camMode === 'selfie' ? title + ' — posisikan wajah di dalam lingkaran lalu tekan tombol' : title;
     $('camShot').disabled = true;
     $('camModal').classList.remove('hidden');
     try {
-      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } }, audio: false });
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: camMode === 'selfie' ? 'user' : 'environment', width: { ideal: 720 }, height: { ideal: 960 } }, audio: false });
       $('camVideo').srcObject = camStream;
       await $('camVideo').play().catch(() => {});
       $('camShot').disabled = false;
@@ -1090,13 +1100,13 @@ function shrink(src, w, h, mirror) {
 async function camCapture() {
   const v = $('camVideo');
   if (!v.videoWidth) return;
-  if ('FaceDetector' in window) {
+  if (camMode === 'selfie' && 'FaceDetector' in window) {
     try {
       const faces = await new window.FaceDetector({ fastMode: true }).detect(v);
       if (!faces.length) { toast('Wajah tidak terdeteksi, coba lagi', true); return; }
     } catch (e) { /* FaceDetector tidak tersedia di HP ini → lanjut */ }
   }
-  camClose(shrink(v, v.videoWidth, v.videoHeight, true));
+  camClose(shrink(v, v.videoWidth, v.videoHeight, camMode === 'selfie'));
 }
 function camClose(photo) {
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
@@ -1125,14 +1135,15 @@ async function doClock(kind) {
   } catch (e) { toast(e.message, true); renderDHome(); }
 }
 async function finishTrip(id, btn) {
-  if (!confirm('Tandai trip ini selesai?')) return;
-  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  const photo = await camOpen('Foto job done — foto penumpang turun / lokasi drop off', 'scene');
+  if (!photo) { toast('Belum selesai — foto job done wajib'); return; }
+  btn.disabled = true; btn.textContent = 'Mengirim foto…';
   try {
-    const r = await api('finish', { id: id });
-    const b = S.dh.bookings.find(x => x.id === id); if (b) { b.finishedAt = r.finishedAt; b.depart = 'DONE'; }
-    toast('Trip selesai ' + r.finishedAt.slice(11));
+    const r = await api('finish', { id: id, photo: photo });
+    const b = S.dh.bookings.find(x => x.id === id); if (b) { b.finishedAt = r.finishedAt; b.depart = 'DONE'; b.jobPhoto = r.jobPhoto; }
+    toast('Trip selesai ' + r.finishedAt.slice(11) + ' · foto terkirim');
     renderDHome(); driverRefresh();
-  } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Selesai trip'; }
+  } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = 'Selesai trip + foto'; }
 }
 
 $('hMonth').addEventListener('change', () => renderHist());
