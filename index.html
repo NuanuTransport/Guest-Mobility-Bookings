@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nuanu Taxi Booking</title>
 <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAB2UlEQVR42u3bPW/TUBTG8f+5ttOJokQoQ4WokECCkdeKDkVt1AipEBFKkVoEtALKwMDSpUMnvgcfgy/AwpdpJOfFKiT2ZaDem9CBWz9nt63nd+491rVkW9xseypcjoqXAAQgAAEIQAACEIAABCAAAQhAAAIQgAAEIAABCEAAAhCAAAQgAAEIQAACEIAAQigzI3KumgCRc3jvyYuiWgBmhjMjLwrmkhovV9t8O/w69X3iULueFwUeaN1bYm+jy+3F6/wa/774AGX4hStNvmy9ZvXuQ8aTCb1BH2d2cQHMDAPyomD9wSMOtnepX5qnPxpiZsQzDsE4pPCF93zsbLLf2SI7OSEdDWcOHgxAGd4DR7uf6D5u0UvTf+p6MG+BctIX3nP07m/44zQlcm6m/R4cQPma+/xim+craxyn6bl0PQiActo/XV7h/bMuvf75h/9vAcrO37h6jYOdPdLhEOdcNc4Cdrq34yjm8M0H5pIaeZ5jVTkMlUPv1VqbOzdvMchGMx90ggMowzfrDd4+6dDPRsRRdObrfegAZob3np31DZr1BuPJZKqlX4uTcAHsdPA15i/Tur/EIMvOvPQ9kMQJ33/+mP65+mcIfRITgAAEIAABCEAAAhBAFesPnzZ/oyll+fUAAAAASUVORK5CYII=">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googles.com">
+<link href="https://fonts.googles.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -100,6 +100,14 @@
   header .sp{display:none}
   header button{flex:none}
   @media (max-width:480px){ header{gap:8px;padding:12px} header h1{font-size:14px} .logo-w{height:18px} header button{padding:7px 10px} }
+  .badge{display:inline-block;min-width:18px;padding:1px 6px;border-radius:99px;background:var(--red);color:#fff;font-size:11px;font-weight:700;margin-left:4px;text-align:center}
+  .schip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-size:12px;font-weight:600;background:#fff;cursor:pointer;margin:0 6px 6px 0}
+  .schip.off{opacity:.55;cursor:default;text-decoration:line-through}
+  .schip.on{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+  .schip small{font-weight:500;color:var(--muted)}
+  .offtag{display:inline-block;font-size:11px;font-weight:700;color:var(--red);margin-top:2px}
+  .reqcard{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:#fff}
+  .reqview{max-width:640px;margin:0 auto;padding:16px}
   .inwrap{display:flex;gap:6px}
   .inwrap input{flex:1;min-width:0}
   .inwrap .btn{padding:9px 10px;white-space:nowrap}
@@ -153,6 +161,10 @@
   <h2 style="margin:0 0 4px">Taxi Booking</h2>
   <p class="muted small" style="margin:0 0 16px">Guest Mobility</p>
   <div class="seg"><button id="segAdmin" class="on" onclick="setLoginRole('admin')">Admin</button><button id="segDriver" onclick="setLoginRole('driver')">Driver</button></div>
+  <div id="adminPick" class="hidden" style="margin-bottom:10px">
+    <label>Nama admin</label>
+    <select id="adminSel"><option value="">Memuat…</option></select>
+  </div>
   <div id="driverPick" class="hidden" style="margin-bottom:10px">
     <label>Nama driver</label>
     <select id="driverSel"><option value="">Memuat…</option></select>
@@ -161,12 +173,54 @@
   <input id="pinInput" type="password" inputmode="numeric" placeholder="Masukkan PIN">
   <button class="btn" style="width:100%;margin-top:12px" onclick="login()">Masuk</button>
   <p id="loginMsg" class="small" style="color:var(--red)"></p>
+  <p class="small muted" style="margin:14px 0 0;text-align:center">Department / partner? <a href="#" onclick="openRequest();return false" style="color:var(--brand);font-weight:600">Request booking taxi</a></p>
+</div>
+
+<!-- REQUEST BOOKING (tanpa login) -->
+<div id="requestView" class="hidden">
+  <header>
+    <h1><span class="logo-w" role="img" aria-label="Nuanu"></span><span class="sub">Request Taxi</span></h1>
+    <button onclick="closeRequest()">Login</button>
+  </header>
+  <div class="reqview">
+    <div class="card" id="rqFormCard">
+      <p class="sec-title">Request booking taxi</p>
+      <p class="small muted" style="margin:-4px 0 12px">Request diproses admin Guest Mobility jam 08:00–20:00. Konfirmasi dan nama driver dikirim lewat WhatsApp.</p>
+      <div class="grid">
+        <div><label>Nama pemesan *</label><input id="rqRequester" autocomplete="name"></div>
+        <div><label>Company / department *</label><select id="rqCompany"></select></div>
+        <div><label>No. WhatsApp pemesan *</label><input id="rqWa" type="tel" inputmode="tel" placeholder="+62 812-xxxx-xxxx"></div>
+        <div><label>Nama guest (kalau beda)</label><input id="rqGuest"></div>
+        <div><label>Jumlah penumpang</label><input id="rqPax" type="number" min="1" max="20" value="1"></div>
+        <div><label>Tanggal *</label><input id="rqDate" type="date"></div>
+        <div><label>Jam jemput *</label><input id="rqTime" type="time"></div>
+        <div><label>Pick up * (alamat / link Google Maps)</label><input id="rqPickup"></div>
+        <div><label>Drop off * (alamat / link Google Maps)</label><input id="rqDropoff"></div>
+        <div><label>Trip</label><select id="rqTrip"><option value="SINGEL">Single (sekali jalan)</option><option value="ROUND">Round trip (pulang pergi)</option><option>RENT 4 HOURS</option><option>RENT 6 HOURS</option><option>RENT 8 HOURS</option><option>RENT 12 HOURS</option><option value="EMERGENCY">Emergency</option></select></div>
+        <div><label>Mobil</label><select id="rqCar"><option value="BYD">BYD</option><option value="ALPHARD">Alphard</option></select></div>
+        <div><label>No. flight (kalau ke/dari airport)</label><input id="rqFlight"></div>
+      </div>
+      <label style="margin-top:12px">Catatan</label><textarea id="rqNote" placeholder="Bagasi, kursi bayi, dll."></textarea>
+      <input id="rqHp" class="hidden" tabindex="-1" autocomplete="off">
+      <button class="btn" id="rqSend" style="width:100%;margin-top:14px" onclick="sendRequest()">Kirim request</button>
+    </div>
+    <div class="card hidden" id="rqDone"></div>
+    <div class="card">
+      <p class="sec-title">Cek status request</p>
+      <div class="row">
+        <div style="flex:1;min-width:140px"><label>ID request</label><input id="ckId" placeholder="RQ-1106-ABCDE"></div>
+        <div style="flex:1;min-width:140px"><label>No. WhatsApp</label><input id="ckWa" type="tel"></div>
+        <button class="btn ghost" onclick="checkRequest()">Cek</button>
+      </div>
+      <div id="ckRes" class="small" style="margin-top:10px"></div>
+    </div>
+  </div>
 </div>
 
 <!-- APP -->
 <div id="appView" class="hidden">
   <header>
-    <h1><span class="logo-w" role="img" aria-label="Nuanu"></span><span class="sub">Taxi Booking</span></h1>
+    <h1><span class="logo-w" role="img" aria-label="Nuanu"></span><span class="sub" id="aName">Taxi Booking</span></h1>
     <span class="sp"></span>
     <button onclick="reloadAll()">Refresh</button>
     <button onclick="logout()">Keluar</button>
@@ -175,6 +229,7 @@
     <button data-tab="list" class="on">Booking Harian</button>
     <button data-tab="form">+ Booking Baru</button>
     <button data-tab="att">Absen & OT</button>
+    <button data-tab="req">Request <span class="badge hidden" id="reqBadge">0</span></button>
     <button data-tab="geo">Area Peta</button>
     <button data-tab="dash">Dashboard</button>
   </nav>
@@ -258,6 +313,7 @@
           <div><label>No Invoice</label><input id="fInvNo"></div>
           <div><label>No SO</label><input id="fSoNo" placeholder="SO/2026/…"></div>
         </div>
+        <div id="fSched" style="margin-top:12px"></div>
         <div id="fClash" class="warn hidden"></div>
         <div class="row" style="margin-top:14px">
           <button class="btn" id="fSave" onclick="saveBooking()">Simpan Booking</button>
@@ -279,6 +335,19 @@
           <button class="btn ghost" onclick="$('tplCard').classList.add('hidden')">Tutup</button>
         </div>
       </div>
+    </section>
+
+    <!-- REQUEST BOOKING -->
+    <section id="tab-req" class="hidden">
+      <div class="card noprint">
+        <div class="row">
+          <div style="width:200px"><label>Status</label>
+            <select id="qStatus"><option value="NEW">Baru (belum diproses)</option><option value="DIPROSES">Diproses</option><option value="DITOLAK">Ditolak</option><option value="">Semua</option></select></div>
+          <button class="btn ghost" onclick="copyText(location.href.split('#')[0].split('?')[0] + '?request')">Salin link form request</button>
+        </div>
+        <p class="small muted" style="margin:10px 0 0">Bagikan link form ke department / partner. Request masuk ke sini dan ke tab REQUEST di sheet. <b>Proses</b> membuka form booking yang sudah terisi; setelah disimpan, request otomatis ditandai Diproses.</p>
+      </div>
+      <div id="qList"></div>
     </section>
 
     <!-- AREA PETA (GEOFENCE) -->
@@ -411,7 +480,7 @@
     <div class="mapres hidden" id="mapRes"></div>
     <div id="pickMap"></div>
     <div class="ft">
-      <div id="mapInfo" class="small muted">Klik di peta atau cari alamat untuk memilih lokasi.</div>
+      <div id="mnfo" class="small muted">Klik di peta atau cari alamat untuk memilih lokasi.</div>
       <div class="row" style="margin-top:10px;justify-content:flex-end">
         <button class="btn ghost" onclick="closePicker()">Batal</button>
         <button class="btn" id="mapUse" onclick="usePicked()" disabled>Pakai lokasi ini</button>
@@ -531,7 +600,7 @@ async function api(action, payload) {
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action: action, pin: S.pin }, S.role === 'driver' ? { role: 'driver', driver: S.driver } : {}, payload || {}))
+    body: JSON.stringify(Object.assign({ action: action, pin: S.pin }, S.role === 'driver' ? { role: 'driver', driver: S.driver } : { admin: S.admin || '' }, payload || {}))
   });
   const j = await res.json();
   if (j.auth === false) { logout(); throw new Error(j.error || 'PIN salah'); }
@@ -544,9 +613,20 @@ function setLoginRole(r) {
   S.loginRole = r;
   $('segAdmin').classList.toggle('on', r === 'admin'); $('segDriver').classList.toggle('on', r === 'driver');
   $('driverPick').classList.toggle('hidden', r !== 'driver');
+  $('adminPick').classList.toggle('hidden', r !== 'admin' || !S.adminNames || !S.adminNames.length);
   $('pinLbl').textContent = r === 'driver' ? 'PIN driver' : 'PIN Admin';
   $('loginMsg').textContent = '';
   if (r === 'driver' && !S.driverNamesLoaded) loadDriverNames();
+}
+async function loadAdminNames() {
+  try {
+    const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'adminNames' }) });
+    const j = await res.json();
+    S.adminNames = (j.ok && j.data) || [];
+    $('adminSel').innerHTML = '<option value="">— pilih nama —</option>' + S.adminNames.map(n => '<option>' + esc(n) + '</option>').join('');
+    try { const last = localStorage.getItem('taxiAdminName'); if (last) $('adminSel').value = last; } catch (e) {}
+    $('adminPick').classList.toggle('hidden', S.loginRole !== 'admin' || !S.adminNames.length);
+  } catch (e) { S.adminNames = []; }
 }
 async function loadDriverNames() {
   try {
@@ -563,7 +643,9 @@ async function login() {
   S.pin = $('pinInput').value.trim();
   S.role = S.loginRole;
   S.driver = S.role === 'driver' ? $('driverSel').value : '';
+  S.admin = S.role === 'admin' ? ($('adminSel').value || '') : '';
   if (S.role === 'driver' && !S.driver) { $('loginMsg').textContent = 'Pilih nama driver dulu'; return; }
+  if (S.role === 'admin' && S.adminNames && S.adminNames.length && !S.admin) { $('loginMsg').textContent = 'Pilih nama admin dulu'; return; }
   $('loginMsg').textContent = 'Memeriksa…';
   try {
     if (S.role === 'driver') {
@@ -573,8 +655,10 @@ async function login() {
       $('dName').textContent = me.fullName || me.name;
       await driverBoot();
     } else {
-      await api('ping');
-      try { sessionStorage.setItem('taxiSess', JSON.stringify({ role: 'admin', pin: S.pin })); } catch (e) {}
+      const me = await api('ping');
+      S.adminName = (me && me.name) || 'Admin';
+      $('aName').textContent = 'Taxi Booking · ' + S.adminName;
+      try { sessionStorage.setItem('taxiSess', JSON.stringify({ role: 'admin', pin: S.pin, admin: S.admin })); if (S.admin) localStorage.setItem('taxiAdminName', S.admin); } catch (e) {}
       $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden');
       await boot();
     }
@@ -582,7 +666,7 @@ async function login() {
 }
 function logout() {
   try { sessionStorage.removeItem('taxiSess'); } catch (e) {}
-  S.pin = ''; S.driver = '';
+  S.pin = ''; S.driver = ''; S.admin = ''; S.sched = {};
   $('appView').classList.add('hidden'); $('driverView').classList.add('hidden'); $('loginView').classList.remove('hidden');
   $('pinInput').value = ''; $('loginMsg').textContent = '';
 }
@@ -591,6 +675,7 @@ $('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') login();
 async function boot() {
   $('lDate').value = today();
   $('dMonth').value = $('aMonth').value = today().slice(0, 7);
+  refreshReqBadge();
   resetForm();
   await loadMaster();
   await renderList();
@@ -635,7 +720,7 @@ function rowsIn(from, to) { return S.rows.filter(r => r.date >= from && r.date <
 document.querySelectorAll('nav button[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function showTab(t, noRender) {
   document.querySelectorAll('nav button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['list', 'form', 'att', 'geo', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
+  ['list', 'form', 'att', 'req', 'geo', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
   if (!noRender) currentTabRender();
 }
 function currentTab() { const b = document.querySelector('nav button[data-tab].on'); return b ? b.dataset.tab : 'list'; }
@@ -646,6 +731,8 @@ async function currentTabRender() {
     if (t === 'dash') await renderDash();
     if (t === 'att') await renderAtt();
     if (t === 'geo') renderGeo();
+    if (t === 'req') await renderReq();
+    if (t === 'form') renderSchedBox();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -657,6 +744,7 @@ $('lSearch').addEventListener('input', () => renderList(true));
 
 async function renderList(noFetch) {
   const day = $('lDate').value || today();
+  if (!noFetch) loadSched(day).then(() => { if (currentTab() === 'list') renderList(true); });
   const cached = S.range && S.range[0] <= day && S.range[1] >= day;
   if (!noFetch && !cached) $('lBody').innerHTML = '<tr><td colspan="8" class="muted">Memuat…</td></tr>';
   try { if (!noFetch) await ensureRange(day, day); } catch (e) { toast(e.message, true); }
@@ -679,7 +767,8 @@ async function renderList(noFetch) {
       '<td><b>' + esc(r.guest) + '</b>' + (r.paxType === 'EMPLOYEE' ? '<span class="chip STAFF">STAFF</span>' : '') + '<div class="small muted">' + esc(r.company) + '</div></td>' +
       '<td>' + placeTxt(r.pickup) + '<div class="small muted">→ ' + placeTxt(r.dropoff) + '</div></td>' +
       '<td class="hide-sm">' + esc(r.trip) + '<div class="small muted">' + esc(r.car) + '</div></td>' +
-      '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') + '</td>' +
+      '<td>' + (r.driver && r.driver !== 'CANCELLED' ? esc(r.driver) : '<span class="muted">—</span>') + (r.driverType ? '<div class="small muted">' + esc(r.driverType) + '</div>' : '') +
+        (r.driver && schedState(schedOf(r.driver, r.date)) === 'off' && s !== 'CANCELLED' ? '<div class="offtag">Jadwal: ' + esc(schedOf(r.driver, r.date)) + '</div>' : '') + '</td>' +
       '<td class="num">' + (r.charges ? rp(r.charges) : '<span class="muted">—</span>') + '<div class="small muted">' + esc(r.payment) + '</div></td>' +
       '<td><span class="chip ' + s + '">' + s + '</span>' + (r.finishedAt ? '<div class="small muted">Selesai ' + esc(r.finishedAt.slice(11)) + '</div>' : '') + '</td>' +
       '<td><div class="acts">' +
@@ -727,6 +816,7 @@ function resetForm() {
   $('fPriceInfo').textContent = 'Pilih area untuk menghitung harga.';
   S.chargesTouched = false; S.paxTouched = false; S.payAuto = false; S.areaManual = false;
   S.loc = { pickup: null, dropoff: null }; setTag('pickup'); setTag('dropoff');
+  S.fromReq = null; if ($('fSched')) $('fSched').innerHTML = '';
   buildAreas();
 }
 
@@ -747,6 +837,7 @@ function fillForm(r, asCopy) {
   guessArea();
   applyPrice(false);
   checkClash();
+  renderSchedBox();
 }
 function editBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) return; showTab('form'); fillForm(r, false); }
 function copyBooking(id) { const r = S.rows.find(x => x.id === id); if (!r) return; showTab('form'); fillForm(r, true); toast('Data disalin — ganti tanggal/jam'); }
@@ -788,7 +879,8 @@ function autoArea() {
   guessArea();
   applyPrice(false);
 }
-['fDriver', 'fDate', 'fTime'].forEach(id => $(id).addEventListener('change', checkClash));
+['fDriver', 'fDate', 'fTime'].forEach(id => $(id).addEventListener('change', () => { checkClash(); renderSchedBox(); }));
+$('fDriver').addEventListener('input', () => renderSchedBox(true));
 $('fCompany').addEventListener('change', autoPayment);
 
 const AREA_STOP = ['AREA', 'BEACH', 'NUANU', 'HOUR', 'HOURS', 'RENT', 'CLUB', 'VILLA', 'HOTEL', 'RESORT', 'JALAN', 'ROAD', 'BALI', 'TO', 'DAN', 'AND'];
@@ -979,6 +1071,9 @@ async function saveBooking() {
   const b = readForm();
   const miss = [['date', 'Tanggal'], ['time', 'Jam'], ['guest', 'Guest'], ['company', 'Company'], ['pickup', 'Pick up'], ['dropoff', 'Drop off']].filter(x => !b[x[0]]).map(x => x[1]);
   if (miss.length) { toast('Wajib diisi: ' + miss.join(', '), true); return; }
+  // driver libur di schedule → minta konfirmasi (bisa saja on call)
+  const dc = schedOf(String(b.driver || '').toUpperCase(), b.date);
+  if (b.driver && schedState(dc) === 'off' && !confirm(b.driver.toUpperCase() + ' terjadwal ' + dc + ' (libur/cuti) tanggal ini. Tetap simpan? (mis. on call)')) return;
   const btn = $('fSave'); const label = btn.textContent;
   btn.disabled = true; btn.textContent = 'Menyimpan…';
   try {
@@ -997,6 +1092,10 @@ async function saveBooking() {
     toast(b.id ? 'Perubahan disimpan' : 'Booking tersimpan');
     // template detail booking untuk dikirim manual ke grup WhatsApp
     S.tpl = Object.assign({}, obj, { mapPick: S.loc && S.loc.pickup, mapDrop: S.loc && S.loc.dropoff });
+    if (S.fromReq && !b.id) {                         // booking dibuat dari request → tandai request Diproses
+      const rq = S.fromReq; S.fromReq = null;
+      api('reqProcess', { id: rq, bookingId: obj.id }).then(refreshReqBadge).catch(e => toast('Request belum ditandai: ' + e.message, true));
+    }
     $('lDate').value = b.date;
     resetForm();
     showTpl();
@@ -1131,6 +1230,150 @@ async function renderDash() {
 
 
 
+
+/* =================== SCHEDULE DRIVER (dari Leave Management) =================== */
+S.sched = {};          // { 'yyyy-MM-dd': { DRIVER: 'DO' } }
+const SHIFT_CODE = /^(M\d?|A\d?|N\d?|P\d?|S\d?|OC|ON ?CALL)$/;
+function schedState(code) {
+  const c = String(code || '').trim().toUpperCase();
+  if (!c) return '';
+  if (parseFloat(c.replace(',', '.')) > 0 || SHIFT_CODE.test(c)) return 'work';
+  return 'off';                                      // DO, AL, DP, SL, UL, ML, MR, BL, EO, OFF, dll.
+}
+function schedOf(driver, date) { const d = S.sched[date]; return d && driver ? (d[driver] || '') : ''; }
+async function loadSched(date) {
+  if (!date || S.sched[date] || S.schedLoading === date) return;
+  S.schedLoading = date;
+  try { const r = await api('sched', { from: date, to: date }); const m = {}; Object.keys(r.drivers).forEach(k => m[k] = r.drivers[k][date] || ''); S.sched[date] = m; S.schedNoEmp = r.noEmp || []; }
+  catch (e) { /* schedule tidak terbaca: tanpa peringatan */ }
+  S.schedLoading = '';
+}
+async function renderSchedBox(quick) {
+  const date = $('fDate').value, box = $('fSched');
+  if (!date) { box.innerHTML = ''; return; }
+  if (!quick && !S.sched[date]) { box.innerHTML = '<span class="small muted">Memuat schedule driver…</span>'; await loadSched(date); }
+  const m = S.sched[date];
+  if (!m || !Object.keys(m).length) { box.innerHTML = ''; return; }
+  try { await ensureRange(date, date); } catch (e) {}
+  const sel = $('fDriver').value.trim().toUpperCase();
+  const count = k => rowsIn(date, date).filter(r => r.driver === k && r.depart !== 'CANCELLED' && r.id !== $('fId').value).length;
+  const keys = Object.keys(m).sort((a, b) => (schedState(m[a]) === 'off') - (schedState(m[b]) === 'off') || count(a) - count(b) || a.localeCompare(b));
+  const cur = sel ? m[sel] : '';
+  const head = !sel ? '' : schedState(cur) === 'off'
+    ? '<div class="warn" style="margin:0 0 8px"><b>' + esc(sel) + '</b> terjadwal <b>' + esc(cur) + '</b> (libur/cuti) di tanggal ini.</div>'
+    : schedState(cur) === 'work' ? '<div class="small" style="color:var(--brand);font-weight:600;margin-bottom:8px">' + esc(sel) + ' masuk kerja (' + esc(cur) + ')</div>'
+    : (m[sel] === undefined ? '<div class="small muted" style="margin-bottom:8px">' + esc(sel) + ' tidak ada di tab DRIVER — schedule tidak dicek.</div>' : '<div class="small muted" style="margin-bottom:8px">Schedule ' + esc(sel) + ' kosong / belum ada Employee ID.</div>');
+  box.innerHTML = head + '<label style="margin-bottom:6px">Schedule driver ' + fmtDate(date) + ' (klik untuk pilih)</label><div>' +
+    keys.map(k => { const st = schedState(m[k]), n = count(k);
+      return '<span class="schip ' + (st === 'off' ? 'off' : '') + (k === sel ? ' on' : '') + '"' + (st === 'off' ? '' : ' onclick="pickDriver(\'' + esc(k) + '\')"') + '>' + esc(k) +
+        ' <small>' + (st === 'off' ? esc(m[k]) : st === 'work' ? n + ' job' : 'jadwal ?') + '</small></span>'; }).join('') + '</div>';
+}
+function pickDriver(k) { $('fDriver').value = k; checkClash(); renderSchedBox(true); }
+
+/* =================== REQUEST BOOKING =================== */
+function openRequest() {
+  $('loginView').classList.add('hidden'); $('requestView').classList.remove('hidden');
+  $('rqCompany').innerHTML = '<option value="">— pilih —</option>' + COMPANIES.map(c => '<option value="' + c + '">' + (c === DIRECT_COMPANY ? 'GUEST / PERSONAL (bayar sendiri)' : c) + '</option>').join('') + '<option value="LAINNYA">Lainnya (tulis di catatan)</option>';
+  if (!$('rqDate').value) $('rqDate').value = today();
+  $('rqDate').min = today();
+  try { const d = JSON.parse(localStorage.getItem('taxiReqMe') || 'null'); if (d) { $('rqRequester').value = d.n || ''; $('rqWa').value = d.w || ''; $('rqCompany').value = d.c || ''; } } catch (e) {}
+}
+function closeRequest() {
+  $('requestView').classList.add('hidden'); $('loginView').classList.remove('hidden');
+  if (!S.adminNames) loadAdminNames();
+}
+async function publicCall(body) {
+  const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || 'Gagal');
+  return j.data;
+}
+async function sendRequest() {
+  const r = { requester: $('rqRequester').value.trim(), company: $('rqCompany').value, wa: $('rqWa').value.trim(), guest: $('rqGuest').value.trim(),
+    pax: $('rqPax').value, date: $('rqDate').value, time: $('rqTime').value, pickup: $('rqPickup').value.trim(), dropoff: $('rqDropoff').value.trim(),
+    trip: $('rqTrip').value, car: $('rqCar').value, flight: $('rqFlight').value.trim(), note: $('rqNote').value.trim() };
+  const miss = [['requester', 'Nama pemesan'], ['company', 'Company'], ['wa', 'No. WhatsApp'], ['date', 'Tanggal'], ['time', 'Jam'], ['pickup', 'Pick up'], ['dropoff', 'Drop off']].filter(x => !r[x[0]]).map(x => x[1]);
+  if (miss.length) { toast('Wajib diisi: ' + miss.join(', '), true); return; }
+  const btn = $('rqSend'); btn.disabled = true; btn.textContent = 'Mengirim…';
+  try {
+    const d = await publicCall({ action: 'reqCreate', request: r, hp: $('rqHp').value });
+    try { localStorage.setItem('taxiReqMe', JSON.stringify({ n: r.requester, w: r.wa, c: r.company })); } catch (e) {}
+    $('rqDone').innerHTML = '<p class="sec-title" style="color:var(--brand)">Request terkirim</p><p style="margin:0 0 6px">ID request: <b>' + esc(d.id) + '</b></p>' +
+      '<p class="small muted" style="margin:0 0 12px">' + fmtDate(r.date) + ' ' + esc(r.time) + ' · ' + esc(r.pickup) + ' → ' + esc(r.dropoff) + '<br>Admin akan mengonfirmasi lewat WhatsApp ke ' + esc(r.wa) + '. Simpan ID ini untuk cek status.</p>' +
+      '<button class="btn ghost" onclick="newRequest()">Buat request lain</button>';
+    $('rqDone').classList.remove('hidden'); $('rqFormCard').classList.add('hidden');
+    $('ckId').value = d.id; $('ckWa').value = r.wa;
+  } catch (e) { toast(e.message, true); }
+  btn.disabled = false; btn.textContent = 'Kirim request';
+}
+function newRequest() {
+  ['rqGuest', 'rqPickup', 'rqDropoff', 'rqFlight', 'rqNote', 'rqTime'].forEach(id => $(id).value = '');
+  $('rqDone').classList.add('hidden'); $('rqFormCard').classList.remove('hidden');
+}
+async function checkRequest() {
+  $('ckRes').textContent = 'Memeriksa…';
+  try {
+    const d = await publicCall({ action: 'reqCheck', id: $('ckId').value.trim(), wa: $('ckWa').value.trim() });
+    const lbl = { NEW: 'Menunggu diproses admin', DIPROSES: 'Diproses — booking sudah dibuat', DITOLAK: 'Ditolak' }[d.status] || d.status;
+    $('ckRes').innerHTML = '<b>' + esc(d.id) + '</b>: ' + esc(lbl) + (d.reason ? ' — ' + esc(d.reason) : '') + '<br><span class="muted">' + fmtDate(d.date) + ' ' + esc(d.time) + ' · ' + esc(d.pickup) + ' → ' + esc(d.dropoff) + '</span>';
+  } catch (e) { $('ckRes').textContent = e.message; }
+}
+
+/* admin: daftar request */
+$('qStatus').addEventListener('change', () => renderReq());
+async function refreshReqBadge() {
+  if (S.role !== 'admin' || !S.pin) return;
+  try { const n = (await api('reqList', { status: 'NEW' })).length; $('reqBadge').textContent = n; $('reqBadge').classList.toggle('hidden', !n); } catch (e) {}
+}
+async function renderReq(silent) {
+  if (!silent) $('qList').innerHTML = '<div class="card muted">Memuat…</div>';
+  try {
+    S.reqs = await api('reqList', { status: $('qStatus').value });
+    if ($('qStatus').value === 'NEW') { $('reqBadge').textContent = S.reqs.length; $('reqBadge').classList.toggle('hidden', !S.reqs.length); }
+    const tripLbl = t => ({ SINGEL: 'Single', ROUND: 'Round trip' }[t] || t);
+    $('qList').innerHTML = S.reqs.length ? S.reqs.map(q => {
+      const chip = { NEW: 'PENDING', DIPROSES: 'DONE', DITOLAK: 'CANCELLED' }[q.status] || 'PENDING';
+      return '<div class="reqcard"><div class="row" style="justify-content:space-between;align-items:flex-start">' +
+        '<div><b>' + fmtDate(q.date) + ' · ' + esc(q.time) + '</b> <span class="small muted">' + esc(q.id) + '</span><div style="margin-top:4px;font-weight:600">' + placeTxt(q.pickup) + ' → ' + placeTxt(q.dropoff) + '</div></div>' +
+        '<span class="chip ' + chip + '">' + esc(q.status === 'NEW' ? 'BARU' : q.status) + '</span></div>' +
+        '<div class="small" style="margin-top:6px">' + esc(q.requester) + (q.guest ? ' → guest ' + esc(q.guest) : '') + ' · <b>' + esc(q.company) + '</b> · WA <a href="https://wa.me/' + esc(String(q.wa).replace(/\D/g, '').replace(/^0/, '62')) + '" target="_blank" rel="noopener">' + esc(q.wa) + '</a></div>' +
+        '<div class="small muted">' + [tripLbl(q.trip), q.car, q.pax ? q.pax + ' pax' : '', q.flight ? 'Flight ' + q.flight : ''].filter(Boolean).map(esc).join(' · ') + '</div>' +
+        (q.note ? '<div class="small" style="margin-top:4px">Catatan: ' + esc(q.note) + '</div>' : '') +
+        '<div class="small muted" style="margin-top:4px">Masuk ' + esc(q.created) + (q.procBy ? ' · ' + esc(q.status === 'DITOLAK' ? 'ditolak' : 'diproses') + ' oleh ' + esc(q.procBy) + ' ' + esc(q.procAt) : '') + (q.reason ? ' · ' + esc(q.reason) : '') + '</div>' +
+        (q.status === 'NEW' ? '<div class="row" style="margin-top:10px"><button class="btn" onclick="processReq(\'' + q.id + '\')">Proses jadi booking</button><button class="btn ghost" onclick="rejectReq(\'' + q.id + '\')">Tolak</button></div>' : '') + '</div>';
+    }).join('') : '<div class="card muted">Tidak ada request.</div>';
+  } catch (e) { if (!silent) $('qList').innerHTML = '<div class="card muted">' + esc(e.message) + '</div>'; }
+}
+function processReq(id) {
+  const q = (S.reqs || []).find(x => x.id === id); if (!q) return;
+  showTab('form', true); resetForm(); $('tplCard').classList.add('hidden');
+  const up = v => String(v || '').toUpperCase();
+  $('fDate').value = q.date; $('fTime').value = q.time;
+  $('fGuest').value = up(q.guest && up(q.guest) !== up(q.requester) ? q.requester + ' - ' + q.guest : q.requester);
+  const co = up(q.company) === 'LAINNYA' ? '' : up(q.company);
+  if (co && ![...$('fCompany').options].some(o => o.value === co)) { const o = document.createElement('option'); o.textContent = co; $('fCompany').appendChild(o); }
+  $('fCompany').value = co; autoPayment();
+  $('fWa').value = q.wa; $('fFlight').value = up(q.flight);
+  $('fTrip').value = [...$('fTrip').options].some(o => o.value === q.trip) ? q.trip : 'SINGEL';
+  $('fCar').value = q.car === 'ALPHARD' ? 'ALPHARD' : 'BYD'; buildAreas();
+  $('fPurpose').value = [q.pax && q.pax !== '1' ? q.pax + ' pax' : '', q.note, 'Request ' + q.id].filter(Boolean).join(' · ');
+  ['pickup', 'dropoff'].forEach(k => {
+    const v = q[k], el = $(k === 'pickup' ? 'fPickup' : 'fDropoff');
+    el.value = MAPS_LINK.test(v) ? v : up(v);
+    if (MAPS_LINK.test(v)) resolveLink(k, v);
+  });
+  guessPax(); autoArea(); renderSchedBox();
+  S.fromReq = id;
+  $('fTitle').textContent = 'Booking dari request ' + id;
+  toast('Data request terisi — cek harga, pilih driver, lalu Simpan');
+}
+async function rejectReq(id) {
+  const reason = prompt('Alasan tolak (dikirim manual ke pemesan via WA):', 'Tidak ada unit tersedia di jam tersebut');
+  if (reason === null) return;
+  try { await api('reqReject', { id: id, reason: reason }); toast('Request ditolak'); renderReq(); }
+  catch (e) { toast(e.message, true); }
+}
+
 /* =================== DETAIL BOOKING (klik baris / kartu) =================== */
 /* nama lokasi untuk daftar/kartu: link Maps ditampilkan pendek */
 function placeTxt(t) {
@@ -1170,7 +1413,9 @@ function showDetail(id, mode) {
     ['Mobil', esc(b.car)],
     ['Driver', esc(b.driver && b.driver !== 'CANCELLED' ? b.driver + (b.driverType ? ' (' + b.driverType + ')' : '') : '')],
     ['Selesai', esc(b.finishedAt ? b.finishedAt.slice(11) + ' · ' + fmtDate(b.finishedAt.slice(0, 10)) : '')],
-    ['Note', esc(b.purpose)]
+    ['Note', esc(b.purpose)],
+    mode === 'admin' ? ['Dibuat', esc(b.createdBy)] : ['', ''],
+    mode === 'admin' ? ['Diubah', esc(b.updatedBy)] : ['', '']
   ];
   if (mode === 'admin') rows.push(
     ['Payment', esc(b.payment)],
@@ -1532,8 +1777,11 @@ function renderTmr() {
   $('tmrLbl').textContent = 'Job for tomorrow · ' + new Date(tmr + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
   const list = h.bookings.filter(b => b.date === tmr);
   const active = list.filter(b => b.depart !== 'CANCELLED');
+  const off = schedState(h.tmrSched) === 'off';
   $('tmrList').innerHTML = (active.length
-    ? '<div class="card small muted" style="margin-bottom:10px">' + active.length + ' job besok · mulai jam <b style="color:var(--ink)">' + esc(active[0].time || '--:--') + '</b></div>'
+    ? (off ? '<div class="warn" style="margin:0 0 10px">Jadwal Anda besok <b>' + esc(h.tmrSched) + '</b> (libur/cuti), tetapi ada job. Konfirmasi ke admin.</div>' : '') +
+      '<div class="card small muted" style="margin-bottom:10px">' + active.length + ' job besok · mulai jam <b style="color:var(--ink)">' + esc(active[0].time || '--:--') + '</b></div>'
+    : off ? '<div class="standby" style="background:var(--brand-soft);color:var(--brand)">Besok Anda libur.<b>Jadwal: ' + esc(h.tmrSched) + '</b></div>'
     : '<div class="standby">Belum ada booking untuk Anda besok.<b>Standby di ' + STANDBY_NOTE + '</b></div>') +
     list.map(b => tripCard(b, false)).join('');
 }
@@ -1638,7 +1886,7 @@ async function finishTrip(id, btn) {
   if (!confirm('Tandai trip ini selesai?')) return;
   btn.disabled = true; btn.textContent = 'Menyimpan…';
   try {
-    const r = await api('finish', { id: id });
+    const r = await ('finish', { id: id });
     const b = S.dh.bookings.find(x => x.id === id); if (b) { b.finishedAt = r.finishedAt; b.depart = 'DONE'; }
     toast('Trip selesai ' + r.finishedAt.slice(11));
     renderDHome(); driverRefresh();
@@ -1649,7 +1897,7 @@ $('hMonth').addEventListener('change', () => renderHist());
 async function renderHist(silent) {
   if (!silent) $('hTrips').innerHTML = '<div class="card muted">Memuat…</div>';
   try {
-    const h = await api('dhistory', { month: $('hMonth').value || today().slice(0, 7) });
+    const h = await ('dhistory', { month: $('hMonth').value || today().slice(0, 7) });
     S.hist = h;
     const fin = h.bookings.filter(b => b.finishedAt || b.depart === 'DONE');
     const appr = h.att.filter(a => a.otStatus === 'APPROVED'), pend = h.att.filter(a => a.otStatus === 'PENDING');
@@ -1671,7 +1919,9 @@ setInterval(() => {
   if (document.hidden) return;
   if (!$('driverView').classList.contains('hidden')) { driverRefresh(); return; }
   if ($('appView').classList.contains('hidden') || currentTab() === 'form') return;
+  refreshReqBadge();
   if (currentTab() === 'att') { renderAtt(true); return; }
+  if (currentTab() === 'req') { renderReq(true); return; }
   syncSilent();
 }, 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('appView').classList.contains('hidden') && currentTab() !== 'form') syncSilent(); });
@@ -1682,7 +1932,12 @@ try {
   if (ss && ss.pin) {
     $('pinInput').value = ss.pin;
     if (ss.role === 'driver') { setLoginRole('driver'); S.loginRole = 'driver'; $('driverSel').innerHTML = '<option>' + esc(ss.driver) + '</option>'; $('driverSel').value = ss.driver; }
+    if (ss.role === 'admin' && ss.admin) { $('adminSel').innerHTML = '<option>' + esc(ss.admin) + '</option>'; $('adminSel').value = ss.admin; S.adminNames = [ss.admin]; }
     login();
+  } else if (/[?&]request\b/.test(location.search)) {
+    openRequest();
+  } else {
+    loadAdminNames();
   }
 } catch (e) {}
 </script>
